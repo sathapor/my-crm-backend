@@ -18,8 +18,18 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 // Socket.io for Realtime Tracking & Omni-channel chat (Mock API)
 const io = new Server(server, {
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
-    methods: ['GET', 'POST']
+    origin: (origin, callback) => {
+      const allowed = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        process.env.FRONTEND_URL,
+        'https://finance-app-five-hazel.vercel.app',
+      ].filter(Boolean);
+      if (!origin || allowed.includes(origin)) callback(null, true);
+      else callback(new Error(`Socket CORS: origin ${origin} not allowed`));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 app.set('io', io);
@@ -43,6 +53,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   process.env.FRONTEND_URL,
+  'https://finance-app-five-hazel.vercel.app',
 ].filter(Boolean);
 
 app.use(cors({

@@ -75,7 +75,7 @@ exports.sendMessage = async (req, res) => {
       }
       if (fbToken) {
         console.log('Pushing to Facebook: ', conv.facebook_user_id);
-        const fbRes = await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${fbToken}`, {
+        const fbRes = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${fbToken}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -359,9 +359,15 @@ exports.facebookWebhook = async (req, res) => {
     } else if (accountId && accountId !== 'default') {
       query = query.eq('page_id', accountId);
     } else {
-      // กรณีไม่ส่ง ID มาเลย ให้ลองดูว่ามีตัวแรกไหม (หรือข้ามกรณีนี้ไปถ้าไม่มั่นใจ)
-      console.warn('[FB] accountId is missing or default in POST webhook');
-      return; 
+      // ไม่มี accountId — ลอง lookup จาก page_id ที่ Facebook ส่งมาใน entry
+      const pageIdFromEntry = body.entry?.[0]?.id;
+      if (pageIdFromEntry) {
+        console.log(`[FB] No accountId, trying to find page by entry.id: ${pageIdFromEntry}`);
+        query = query.eq('page_id', pageIdFromEntry);
+      } else {
+        console.warn('[FB] Cannot determine page — no accountId and no entry.id');
+        return;
+      }
     }
 
     const { data: fbAcc, error: findErr } = await query.single();
@@ -384,9 +390,36 @@ exports.facebookWebhook = async (req, res) => {
       if (!event.message || event.message.is_echo) continue;
 
       const fbUserId = event.sender.id;
-      const msgText = event.message.text || '📎 ไฟล์แนบ';
+      // จัดการทั้งข้อความและรูปภาพ/ไฟล์แนบจาก Facebook
+      let msgText = event.message.text || '';
+      let fbImageUrl = null;
+
+      // จัดการ Attachments (รูปภาพ, วิดีโอ, สติ๊กเกอร์)
+      if (!msgText && event.message.attachments && event.message.attachments.length > 0) {
+        const attachment = event.message.attachments[0];
+        if (attachment.type === 'image') {
+          msgText = '🖼️ รูปภาพ';
+          fbImageUrl = attachment.payload?.url || null;
+        } else if (attachment.type === 'video') {
+          msgText = '🎥 วิดีโอ';
+        } else if (attachment.type === 'audio') {
+          msgText = '🎤 เสียง';
+        } else if (attachment.type === 'file') {
+          msgText = '📎 ไฟล์แนบ';
+          fbImageUrl = attachment.payload?.url || null;
+        } else if (attachment.type === 'sticker') {
+          msgText = '🎭 สติ๊กเกอร์';
+          fbImageUrl = attachment.payload?.url || null;
+        } else {
+          msgText = '📎 ไฟล์แนบ';
+        }
+      } else if (!msgText) {
+        msgText = '📎 ไฟล์แนบ';
+      }
+
       const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
       const newMsg = { text: msgText, type: 'received', time };
+      if (fbImageUrl) newMsg.imageUrl = fbImageUrl;
 
       try {
         // หาว่ามี conversation ของ user นี้อยู่แล้วไหม
@@ -413,7 +446,7 @@ exports.facebookWebhook = async (req, res) => {
           if (fbToken) {
             try {
               const profileRes = await fetch(
-                `https://graph.facebook.com/v18.0/${fbUserId}?fields=name,profile_pic&access_token=${fbToken}`
+                `https://graph.facebook.com/v21.0/${fbUserId}?fields=name,profile_pic&access_token=${fbToken}`
               );
               if (profileRes.ok) {
                 const profile = await profileRes.json();

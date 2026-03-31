@@ -208,22 +208,31 @@ export default function Settings() {
   }, [activeTab]);
 
   const initFbSdk = () => {
-    if (!fbAppId) return;
-    if (window.FB) {
-      window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
-      return;
-    }
-    window.fbAsyncInit = function () {
-      window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
-    };
-    (function (d, s, id) {
-      if (d.getElementById(id)) return;
-      const fjs = d.getElementsByTagName(s)[0];
-      const js = d.createElement(s);
-      js.id = id;
-      js.src = 'https://connect.facebook.net/en_US/sdk.js';
-      fjs.parentNode.insertBefore(js, fjs);
-    })(document, 'script', 'facebook-jssdk');
+    return new Promise((resolve) => {
+      if (!fbAppId) return resolve(false);
+      
+      // ถ้า SDK โหลดและ init แล้ว ใช้ได้เลย
+      if (window.FB && window.FB.getLoginStatus) {
+        window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
+        return resolve(true);
+      }
+      
+      // ตั้ง callback สำหรับเมื่อ SDK โหลดเสร็จ
+      window.fbAsyncInit = function () {
+        window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
+        resolve(true);
+      };
+      
+      // โหลด SDK script ตัวจริง
+      if (!document.getElementById('facebook-jssdk')) {
+        const script = document.createElement('script');
+        script.id = 'facebook-jssdk';
+        script.src = 'https://connect.facebook.net/en_US/sdk.js';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    });
   };
 
   const saveAppId = () => {
@@ -236,19 +245,22 @@ export default function Settings() {
     setTimeout(() => window.location.reload(), 1500);
   };
 
-  const handleFbLogin = () => {
+  const handleFbLogin = async () => {
     if (!fbAppId) {
       showToast('⚠️ กรุณาใส่ Facebook App ID ก่อนครับ');
       return;
     }
-    
-    if (!window.FB) {
-      showToast('⌛ กำลังโหลด Facebook SDK... กรุณารอสักครู่');
-      initFbSdk();
+
+    setFbLoginStatus('loading');
+
+    // รอ SDK ให้พร้อมจริงๆ ก่อนเรียก login (Fix: FB.login() called before FB.init())
+    const ready = await initFbSdk();
+    if (!ready || !window.FB) {
+      showToast('❌ Facebook SDK โหลดไม่สำเร็จ กรุณาตรวจสอบ App ID หรือ Internet ชื่อต่อ');
+      setFbLoginStatus('idle');
       return;
     }
 
-    setFbLoginStatus('loading');
     window.FB.login((response) => {
       if (response.authResponse) {
         const userToken = response.authResponse.accessToken;
@@ -268,6 +280,7 @@ export default function Settings() {
       }
     }, { scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile' });
   };
+
 
   const handleConnectPage = async (page) => {
     setConnectingPageId(page.id);
