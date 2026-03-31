@@ -417,6 +417,34 @@ export default function Chat() {
     }
   };
 
+  // ─── Delete Message & Conversation ─────────────────────────────
+  const handleDeleteMessage = async (msgIndex) => {
+    if (!window.confirm('คุณต้องการลบข้อความนี้ใช่หรือไม่? (จะถูกลบออกจากจอ CRM เท่านั้น)')) return;
+    try {
+      await api.delete(`/chats/${activeChat.id}/messages/${msgIndex}`);
+      // Optimistic Update
+      setActiveChat(prev => {
+        const newMsgs = [...prev.messages];
+        newMsgs.splice(msgIndex, 1);
+        return { ...prev, messages: newMsgs };
+      });
+    } catch (err) {
+      showToast('ไม่สามารถลบข้อความได้', 'error');
+    }
+  };
+
+  const handleDeleteConversation = async (convId) => {
+    if (!window.confirm('คำเตือน: คุณต้องการลบประวัติการแชทของลูกค้ารายนี้หรือไม่? (ข้อมูลจะสูญหายถาวร!)')) return;
+    try {
+      await api.delete(`/chats/${convId}`);
+      setActiveChat(null);
+      showToast('🗑️ ลบแชทลูกค้าเรียบร้อยแล้ว');
+      fetchData(true);
+    } catch (err) {
+      showToast('ลบแชทไม่ได้', 'error');
+    }
+  };
+
 
   // ─── Cart helpers ──────────────────────────────────────────────
   const addToCart = (prod) => {
@@ -699,7 +727,12 @@ export default function Chat() {
                     {isSocketConnected ? 'LIVE' : 'OFFLINE'}
                   </span>
                 </div>
-                <button onClick={() => fetchData(true)} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><RefreshCw size={15} /></button>
+                <button onClick={() => handleDeleteConversation(activeChat.id)} className="p-1.5 hover:bg-red-50 hover:text-red-500 text-gray-400 rounded-lg transition" title="ลบห้องแชท">
+                  <Trash2 size={15} />
+                </button>
+                <button onClick={() => fetchData(true)} className="p-1.5 hover:bg-gray-100 rounded-lg transition" title="รีเฟรช">
+                  <RefreshCw size={15} />
+                </button>
               </div>
             </div>
 
@@ -772,6 +805,11 @@ export default function Chat() {
                         </div>
                       )}
                       <div className="flex items-center gap-1 mt-0.5 px-1 opacity-0 group-hover:opacity-100 transition">
+                        {isSent && (
+                          <button onClick={() => handleDeleteMessage(idx)} className="text-gray-400 hover:text-red-500 p-0.5 mr-1 bg-white rounded-full shadow-sm drop-shadow" title="ลบข้อความ">
+                            <Trash2 size={10} />
+                          </button>
+                        )}
                         <span className="text-[10px] text-gray-400">{msg.time}</span>
                         {isSent && <Check size={12} className="text-blue-500" />}
                       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3 } from 'lucide-react';
 import api from '../api';
 
 // Toast component
@@ -148,7 +148,62 @@ export default function Settings() {
     if (activeTab === 'line_oa') {
       fetchLineAccounts();
     }
+    if (activeTab === 'auto_reply') {
+      fetchAutoReplies();
+    }
   }, [activeTab]);
+
+  // === Auto Reply State ===
+  const [autoReplies, setAutoReplies] = useState([]);
+  const [isAddingReply, setIsAddingReply] = useState(false);
+  const [replyForm, setReplyForm] = useState({ id: null, keyword: '', reply_text: '', is_active: true });
+
+  const fetchAutoReplies = async () => {
+    try {
+      const res = await api.get('/auto-replies');
+      if (res.data.success) setAutoReplies(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const saveAutoReply = async () => {
+    if (!replyForm.keyword || !replyForm.reply_text) return showToast('⚠️ กรุณากรอกคีย์เวิร์ดและคำตอบ');
+    try {
+      if (replyForm.id) {
+        await api.put(`/auto-replies/${replyForm.id}`, replyForm);
+        showToast('✅ แก้ไขข้อความตอบกลับสำเร็จ');
+      } else {
+        await api.post('/auto-replies', replyForm);
+        showToast('✅ เพิ่มข้อความตอบกลับอัตโนมัติสำเร็จ');
+      }
+      setIsAddingReply(false);
+      setReplyForm({ id: null, keyword: '', reply_text: '', is_active: true });
+      fetchAutoReplies();
+    } catch (err) {
+      showToast('❌ ไม่สามารถบันทึกได้');
+    }
+  };
+
+  const toggleAutoReply = async (id, currentStatus) => {
+    try {
+      await api.put(`/auto-replies/${id}`, { is_active: !currentStatus });
+      setAutoReplies(prev => prev.map(r => r.id === id ? { ...r, is_active: !currentStatus } : r));
+    } catch (err) {
+      showToast('❌ เปลี่ยนสถานะไม่สำเร็จ');
+    }
+  };
+
+  const deleteAutoReply = async (id) => {
+    if (!window.confirm('ต้องการลบคีย์เวิร์ดนี้ใช่หรือไม่?')) return;
+    try {
+      await api.delete(`/auto-replies/${id}`);
+      showToast('🗑️ ลบสำเร็จ');
+      fetchAutoReplies();
+    } catch (err) {
+      showToast('❌ ลบไม่สำเร็จ');
+    }
+  };
 
   const fetchLineAccounts = async () => {
     try {
@@ -196,8 +251,7 @@ export default function Settings() {
   const [facebookAccounts, setFacebookAccounts] = useState([]);
   const [fbAvailablePages, setFbAvailablePages] = useState([]); // Pages returned after FB Login
   const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
-  const [fbAppId, setFbAppId] = useState(() => import.meta.env.VITE_FACEBOOK_APP_ID || localStorage.getItem('fb_app_id') || '');
-  const [fbAppIdInput, setFbAppIdInput] = useState('');
+  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || localStorage.getItem('fb_app_id') || '1263587315899560'; // Hardcoded master App ID for SaaS experience
   const [connectingPageId, setConnectingPageId] = useState(null); // page currently being saved
 
   useEffect(() => {
@@ -209,21 +263,34 @@ export default function Settings() {
 
   const initFbSdk = () => {
     return new Promise((resolve) => {
+      console.log('🎬 Initializing FB SDK with ID:', fbAppId);
       if (!fbAppId) return resolve(false);
       
-      // ถ้า SDK โหลดและ init แล้ว ใช้ได้เลย
-      if (window.FB && window.FB.getLoginStatus) {
-        window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
-        return resolve(true);
+      const setupFB = () => {
+        try {
+          window.FB.init({
+            appId: fbAppId,
+            cookie: true,
+            xfbml: true,
+            version: 'v19.0'
+          });
+          console.log('✅ FB.init() successful');
+          resolve(true);
+        } catch (err) {
+          console.error('❌ FB.init() failed:', err);
+          resolve(false);
+        }
+      };
+
+      if (window.FB) {
+        setupFB();
+        return;
       }
       
-      // ตั้ง callback สำหรับเมื่อ SDK โหลดเสร็จ
       window.fbAsyncInit = function () {
-        window.FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
-        resolve(true);
+        setupFB();
       };
       
-      // โหลด SDK script ตัวจริง
       if (!document.getElementById('facebook-jssdk')) {
         const script = document.createElement('script');
         script.id = 'facebook-jssdk';
@@ -231,18 +298,20 @@ export default function Settings() {
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
+      } else {
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attempts++;
+          if (window.FB) {
+            clearInterval(interval);
+            setupFB();
+          } else if (attempts > 50) {
+            clearInterval(interval);
+            resolve(false);
+          }
+        }, 100);
       }
     });
-  };
-
-  const saveAppId = () => {
-    const id = fbAppIdInput.trim();
-    if (!id) return;
-    localStorage.setItem('fb_app_id', id);
-    setFbAppId(id);
-    setFbAppIdInput('');
-    showToast('✅ บันทึก App ID แล้ว! กด Refresh เพื่อโหลด SDK');
-    setTimeout(() => window.location.reload(), 1500);
   };
 
   const handleFbLogin = async () => {
@@ -394,6 +463,7 @@ export default function Settings() {
             { id: 'payment', label: 'บัญชีธนาคารรับเงิน', icon: Wallet },
             { id: 'theme', label: 'ธีมและโทนสี', icon: PaintBucket },
             { id: 'notification', label: 'การแจ้งเตือน', icon: Bell },
+            { id: 'auto_reply', label: 'ระบบตอบอัตโนมัติ', icon: Zap },
             { id: 'line_oa', label: 'เชื่อมต่อ LINE OA', icon: MessageCircle },
             { id: 'facebook_page', label: 'เชื่อมต่อ Facebook Page', icon: Facebook },
             { id: 'security', label: 'รหัสผ่านและความปลอดภัย', icon: Shield },
@@ -710,41 +780,89 @@ export default function Settings() {
                           <><Facebook size={22} /> {facebookAccounts.length > 0 ? 'เพิ่มเพจ Facebook อื่น' : 'เชื่อมต่อด้วย Facebook'}</>
                         )}
                       </button>
-                      {/* App ID chip */}
-                      <div className="flex items-center justify-between mt-3 px-1">
-                        <p className="text-xs text-gray-400">App ID: <code className="font-mono">{fbAppId.substring(0, 8)}****</code></p>
-                        <button onClick={() => { localStorage.removeItem('fb_app_id'); setFbAppId(''); }} className="text-xs text-red-400 hover:underline">เปลี่ยน App ID</button>
-                      </div>
-
-                      {/* Webhook Help Box — For manual confirmation */}
-                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-2xl space-y-3">
-                        <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">ข้อมูลสำหรับตั้งค่า Webhook (ต้องตรงกับใน Facebook Dashboard)</p>
-                        <div className="space-y-3">
-                          <div className="group">
-                            <p className="text-[10px] text-gray-400 mb-1 font-semibold group-hover:text-blue-500 transition">CALLBACK URL</p>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 p-2 rounded-lg border border-blue-100 dark:border-blue-900 shadow-sm">
-                              <code className="flex-1 text-[11px] text-gray-700 dark:text-gray-300 font-mono truncate">https://my-crm-api.onrender.com/api/chats/facebook/webhook</code>
-                              <button onClick={() => { navigator.clipboard.writeText('https://my-crm-api.onrender.com/api/chats/facebook/webhook'); showToast('คัดลอก Callback URL แล้ว!'); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">
-                                <Copy size={14} className="text-blue-500" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="group">
-                            <p className="text-[10px] text-gray-400 mb-1 font-semibold group-hover:text-green-500 transition">VERIFY TOKEN</p>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 p-2 rounded-lg border border-blue-100 dark:border-blue-900 shadow-sm">
-                              <code className="flex-1 text-[11px] text-green-600 dark:text-green-400 font-mono">crm_facebook_verify_token_2024</code>
-                              <button onClick={() => { navigator.clipboard.writeText('crm_facebook_verify_token_2024'); showToast('คัดลอก Verify Token แล้ว!'); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">
-                                <Copy size={14} className="text-green-500" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-400 italic mt-1 leading-relaxed text-center">* หากตั้งค่าด้านบนถูกต้องแล้ว แชทจะเด้งเข้าแอปอัตโนมัติทันทีครับ</p>
+                      <div className="mt-4 text-center">
+                        <p className="text-[10px] text-gray-500 bg-gray-50 py-2 px-3 rounded-lg border border-gray-100 italic">
+                          ℹ️ ระบบเชื่อมต่ออัตโนมัติ 100% โดย OmniPage SaaS - หมดกังวลเรื่องตั้งค่า Webhook ผู้ใช้เพียงล็อคอินเท่านั้น!
+                        </p>
                       </div>
                     </div>
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* === Auto Reply Section (Page365 Style) === */}
+          {activeTab === 'auto_reply' && (
+            <div className="space-y-6 animate-fade-in relative">
+              <div className="flex justify-between flex-wrap gap-4 items-end border-b border-gray-200 dark:border-gray-700 pb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <Zap className="text-purple-600" /> ตอบรับอัตโนมัติ
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">ตั้งค่าเปิด-ปิด การใช้งานแยกเป็นคำถาม</p>
+                </div>
+                {!isAddingReply && (
+                  <button onClick={() => { setReplyForm({ id: null, keyword: '', reply_text: '', is_active: true }); setIsAddingReply(true); }} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm font-semibold flex items-center gap-2 transition">
+                    <Plus size={16} /> สร้างคำตอบใหม่
+                  </button>
+                )}
+              </div>
+
+              {isAddingReply && (
+                <div className="bg-purple-50 dark:bg-purple-900/10 p-5 rounded-2xl border border-purple-100 dark:border-purple-800/30 mb-6">
+                  <h3 className="font-bold text-purple-800 dark:text-purple-300 mb-4">{replyForm.id ? 'แก้ไขข้อมูล' : 'สร้างคำตอบอัตโนมัติใหม่'}</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">คำถาม / คีย์เวิร์ด (ลูกค้าพิมพ์คำนี้)</label>
+                      <input type="text" placeholder="เช่น หน้าร้านอยู่ที่ไหน" value={replyForm.keyword} onChange={e => setReplyForm({...replyForm, keyword: e.target.value})} className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">คำตอบ (บอทจะตอบสิ่งนี้)</label>
+                      <textarea rows={3} placeholder="ร้านของเราขายเฉพาะช่องทางออนไลน์ค่ะ ^^" value={replyForm.reply_text} onChange={e => setReplyForm({...replyForm, reply_text: e.target.value})} className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-purple-500 outline-none resize-none"></textarea>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button onClick={() => setIsAddingReply(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">ยกเลิก</button>
+                      <button onClick={saveAutoReply} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold">บันทึกข้อมูล</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {autoReplies.map((reply) => (
+                  <div key={reply.id} className="flex flex-col md:flex-row md:items-center py-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-2">
+                    <div className="md:w-1/3 mb-2 md:mb-0">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm">"{reply.keyword}"</span>
+                    </div>
+                    <div className="md:w-1/6 mb-2 md:mb-0">
+                      <Toggle 
+                        checked={reply.is_active} 
+                        onChange={() => toggleAutoReply(reply.id, reply.is_active)} 
+                        label={reply.is_active ? 'เปิด' : 'ปิด'}
+                      />
+                    </div>
+                    <div className="md:w-1/2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <span className="truncate pr-4">{reply.reply_text}</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setReplyForm(reply); setIsAddingReply(true); }} className="text-gray-400 hover:text-blue-500 transition px-2 py-1 flex items-center text-xs">
+                           <Edit3 size={14} className="mr-1" /> แก้ไข
+                        </button>
+                        <button onClick={() => deleteAutoReply(reply.id)} className="text-gray-400 hover:text-red-500 transition px-2 py-1">
+                           <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {autoReplies.length === 0 && !isAddingReply && (
+                  <div className="text-center py-10 text-gray-400 text-sm">
+                    ยังไม่มีการตั้งค่าคำตอบอัตโนมัติ<br/>
+                    ลองเพิ่มคำถามที่เจอบ่อยๆ ดูสิครับ!
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
