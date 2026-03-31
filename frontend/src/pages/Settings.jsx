@@ -237,9 +237,17 @@ export default function Settings() {
   };
 
   const handleFbLogin = () => {
-    if (!window.FB) {
-      return showToast('⚠️ Facebook SDK ยังไม่โหลด กรุณาตรวจสอบ App ID');
+    if (!fbAppId) {
+      showToast('⚠️ กรุณาใส่ Facebook App ID ก่อนครับ');
+      return;
     }
+    
+    if (!window.FB) {
+      showToast('⌛ กำลังโหลด Facebook SDK... กรุณารอสักครู่');
+      initFbSdk();
+      return;
+    }
+
     setFbLoginStatus('loading');
     window.FB.login((response) => {
       if (response.authResponse) {
@@ -251,14 +259,14 @@ export default function Settings() {
             setFbLoginStatus('selecting');
           } else {
             setFbLoginStatus('idle');
-            showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล หรือยังไม่ได้อนุมัติสิทธิ์ pages_messaging');
+            showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล หรือยังไม่ได้อนุมัติสิทธิ์');
           }
         });
       } else {
         setFbLoginStatus('idle');
         showToast('ยกเลิกการเข้าสู่ระบบ');
       }
-    }, { scope: 'pages_show_list,pages_messaging,pages_manage_metadata,pages_read_engagement' });
+    }, { scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile' });
   };
 
   const handleConnectPage = async (page) => {
@@ -693,6 +701,32 @@ export default function Settings() {
                       <div className="flex items-center justify-between mt-3 px-1">
                         <p className="text-xs text-gray-400">App ID: <code className="font-mono">{fbAppId.substring(0, 8)}****</code></p>
                         <button onClick={() => { localStorage.removeItem('fb_app_id'); setFbAppId(''); }} className="text-xs text-red-400 hover:underline">เปลี่ยน App ID</button>
+                      </div>
+
+                      {/* Webhook Help Box — For manual confirmation */}
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-2xl space-y-3">
+                        <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">ข้อมูลสำหรับตั้งค่า Webhook (ต้องตรงกับใน Facebook Dashboard)</p>
+                        <div className="space-y-3">
+                          <div className="group">
+                            <p className="text-[10px] text-gray-400 mb-1 font-semibold group-hover:text-blue-500 transition">CALLBACK URL</p>
+                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 p-2 rounded-lg border border-blue-100 dark:border-blue-900 shadow-sm">
+                              <code className="flex-1 text-[11px] text-gray-700 dark:text-gray-300 font-mono truncate">https://my-crm-api.onrender.com/api/chats/facebook/webhook</code>
+                              <button onClick={() => { navigator.clipboard.writeText('https://my-crm-api.onrender.com/api/chats/facebook/webhook'); showToast('คัดลอก Callback URL แล้ว!'); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">
+                                <Copy size={14} className="text-blue-500" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="group">
+                            <p className="text-[10px] text-gray-400 mb-1 font-semibold group-hover:text-green-500 transition">VERIFY TOKEN</p>
+                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 p-2 rounded-lg border border-blue-100 dark:border-blue-900 shadow-sm">
+                              <code className="flex-1 text-[11px] text-green-600 dark:text-green-400 font-mono">crm_facebook_verify_token_2024</code>
+                              <button onClick={() => { navigator.clipboard.writeText('crm_facebook_verify_token_2024'); showToast('คัดลอก Verify Token แล้ว!'); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">
+                                <Copy size={14} className="text-green-500" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic mt-1 leading-relaxed text-center">* หากตั้งค่าด้านบนถูกต้องแล้ว แชทจะเด้งเข้าแอปอัตโนมัติทันทีครับ</p>
                       </div>
                     </div>
                   )}
