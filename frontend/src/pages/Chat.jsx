@@ -15,13 +15,13 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 // Helper: แปลง imageUrl ให้ถูกต้องเสมอ ไม่ว่าจะเก็บเป็น relative หรือ absolute
 // พิเศษ: หากรันบน localhost ให้บังคับใช้ localhost:5000 เสมอ เพื่อหลีกเลี่ยง LocalTunnel 503 Anti-Abuse Block
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : API_BASE;
+const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-api.onrender.com';
 
 const resolveImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  if (imageUrl.startsWith('http') && !isLocal) return imageUrl; // full URL, ใช้ได้เลย
+  if (imageUrl.startsWith('http') && !imageUrl.includes('localhost')) return imageUrl; // full URL from external source
   
-  // แกะเอาเฉพาะ part ของ /uploads/ ถ้าเป็น full URL ที่ผูกกับ loca.lt หรืออื่นๆ
+  // แกะเอาเฉพาะ part ของ /uploads/ หรือรูป
   const pathOnly = imageUrl.includes('/uploads/') ? imageUrl.substring(imageUrl.indexOf('/uploads/')) : imageUrl;
   
   if (pathOnly.startsWith('/')) return `${EFFECTIVE_API_BASE}${pathOnly}`;
