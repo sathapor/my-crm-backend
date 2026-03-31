@@ -130,6 +130,8 @@ app.use('/api/line-accounts', lineAccountRoutes);
 const facebookAccountRoutes = require('./routes/facebookAccountRoutes');
 app.use('/api/facebook-accounts', facebookAccountRoutes);
 
+const autoReplyRoutes = require('./routes/autoReplyRoutes');
+app.use('/api/auto-replies', autoReplyRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

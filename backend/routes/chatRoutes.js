@@ -37,6 +37,7 @@ router.post('/facebook/webhook/:accountId?', facebookWebhook);
 router.get('/',                          protect, getChats);
 router.post('/',                         protect, sendMessage);
 router.post('/upload', protect, upload.single('image'), uploadImage);
+router.delete('/:id/messages/:index',    protect, require('../controllers/chatController').deleteMessage);
+router.delete('/:id',                    protect, require('../controllers/chatController').deleteConversation);
 
 module.exports = router;
-

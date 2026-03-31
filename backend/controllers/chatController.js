@@ -8,6 +8,29 @@ const { uploadImageToDrive } = require('../services/googleDriveService');
 let memoryConversations = [];
 let lastSeenPublicUrl = process.env.PUBLIC_URL || '';
 
+// --- ฟังก์ชันช่วยเหลือตรวจจับและส่ง Auto Reply ---
+const checkAndSendAutoReply = async (req, conversationId, customerText) => {
+  const supabase = req.app.get('supabase');
+  try {
+    const { data: replies } = await supabase.from('auto_replies').select('*').eq('is_active', true);
+    if (!replies || replies.length === 0) return;
+    
+    // ตรวจสอบแบบ Contains (แค่มีคำในประโยคก็ตอบ)
+    const matched = replies.find(r => customerText.toLowerCase().includes(r.keyword.toLowerCase()));
+    if (matched) {
+      console.log(`🤖 Auto-Reply matched keyword: "${matched.keyword}"`);
+      const mockReq = { app: req.app, body: { conversationId, text: matched.reply_text, type: 'sent' } };
+      const mockRes = { status: () => ({ json: () => {} }), json: () => {} };
+      
+      setTimeout(() => {
+        exports.sendMessage(mockReq, mockRes).catch(err => console.error('Auto Reply Send Err:', err));
+      }, 1000); // หน่วงเวลา 1 วิให้ดูเหมือนบอทกำลังพิมพ์
+    }
+  } catch (err) {
+    console.error('Auto Reply Fetch Err:', err);
+  }
+};
+
 // ── 1. ดึงข้อความทั้งหมดมาแสดงที่บอร์ด ─────────────────────────────────
 exports.getChats = async (req, res) => {
   const supabase = req.app.get('supabase');
@@ -256,12 +279,16 @@ exports.lineWebhook = async (req, res) => {
 
         console.log(`📥 Received LINE message from [${lineUserId}]: ${text} ${imageUrl ? '(Image)' : ''}`);
 
-        // ── Emit via Socket.io ──
         const io = req.app.get('io');
         if (io && updatedConv) {
           io.emit('conversation_updated', updatedConv);
         } else if (io) {
           io.emit('force_refresh', { reason: 'new_message' });
+        }
+
+        // --- Trigger Auto Reply (LINE) ---
+        if (updatedConv && text) {
+          checkAndSendAutoReply(req, updatedConv.id, text);
         }
 
       } catch (err) {
@@ -484,6 +511,11 @@ exports.facebookWebhook = async (req, res) => {
         } else if (io) {
           io.emit('force_refresh', { reason: 'fb_new_message' });
         }
+
+        // --- Trigger Auto Reply (Facebook) ---
+        if (updatedConv && msgText) {
+          checkAndSendAutoReply(req, updatedConv.id, msgText);
+        }
       } catch (err) {
         console.error('[FB] Webhook processing error:', err.message);
       }
@@ -582,5 +614,70 @@ exports.uploadImage = async (req, res) => {
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ success: false, error: 'Upload failed' });
+  }
+};
+
+// ── 8. Delete a Single Message (ลบเฉพาะ 1 ข้อความ) ────────────────
+exports.deleteMessage = async (req, res) => {
+  const supabase = req.app.get('supabase');
+  const { id, index } = req.params;
+
+  try {
+    const { data: conv, error: fetchErr } = await supabase.from('chat_conversations').select('*').eq('id', id).single();
+    if (fetchErr || !conv) throw new Error('Conversation not found');
+
+    const msgs = [...(conv.messages || [])];
+    const msgIndex = parseInt(index, 10);
+    if (msgIndex < 0 || msgIndex >= msgs.length) {
+      return res.status(400).json({ success: false, error: 'Invalid message index' });
+    }
+
+    // ลบข้อความออกจาก Array
+    msgs.splice(msgIndex, 1);
+    
+    // หา last message ใหม่ ถ้า Array ว่างก็จะเป็นค่าว่าง
+    const lastMessageObj = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    let newLastMessage = lastMessageObj ? (lastMessageObj.text || (lastMessageObj.imageUrl ? '[รูปภาพ]' : '[ข้อความ]')) : '';
+
+    const { data: updatedData, error: updateErr } = await supabase
+      .from('chat_conversations')
+      .update({ messages: msgs, last_message: newLastMessage })
+      .eq('id', id)
+      .select('*');
+      
+    if (updateErr) throw updateErr;
+
+    // แจ้งเตือน WebSockets
+    const io = req.app.get('io');
+    if (io && updatedData && updatedData[0]) {
+      io.emit('conversation_updated', updatedData[0]);
+    }
+
+    res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (err) {
+    console.error('Delete Message Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ── 9. Delete an Entire Conversation (ลบทั้งห้องแชท) ───────────────
+exports.deleteConversation = async (req, res) => {
+  const supabase = req.app.get('supabase');
+  const { id } = req.params;
+
+  try {
+    const { error } = await supabase.from('chat_conversations').delete().eq('id', id);
+    if (error) throw error;
+
+    // แจ้งให้ Frontend รู้ว่าให้รีเฟรช / ขจัดแชทนี้ออกจาก list
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('force_refresh', { reason: 'conversation_deleted' });
+    }
+
+    res.json({ success: true, message: 'Conversation deleted successfully' });
+  } catch (err) {
+    console.error('Delete Conversation Error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
