@@ -84,8 +84,12 @@ exports.sendMessage = async (req, res) => {
           })
         });
         const fbText = await fbRes.text();
-        if (!fbRes.ok) console.error('🚫 Facebook Send Error:', fbRes.status, fbText);
-        else console.log(`✅ Push Message to Facebook User ${conv.facebook_user_id} success!`);
+        if (!fbRes.ok) {
+          console.error('🚫 Facebook Send Error:', fbRes.status, fbText);
+          throw new Error(`Facebook Error: ${fbText}`);
+        } else {
+          console.log(`✅ Push Message to Facebook User ${conv.facebook_user_id} success!`);
+        }
       }
     }
 
