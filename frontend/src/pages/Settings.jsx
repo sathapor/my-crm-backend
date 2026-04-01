@@ -16,13 +16,13 @@ function Toast({ msg }) {
 // Toggle Switch component
 function Toggle({ checked, onChange, label }) {
   return (
-    <label className="flex items-center justify-between cursor-pointer group">
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-brand-DEFAULT transition">{label}</span>
+    <label className="flex items-center justify-between cursor-pointer group py-1">
+      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-brand-DEFAULT transition-colors">{label}</span>
       <div
         onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-DEFAULT' : 'bg-gray-300 dark:bg-gray-600'}`}
+        className={`relative w-11 h-6 rounded-full transition-all duration-300 ${checked ? 'bg-brand-DEFAULT shadow-lg shadow-brand-DEFAULT/30' : 'bg-gray-400/80 dark:bg-gray-600 ring-2 ring-gray-200 dark:ring-gray-700'}`}
       >
-        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${checked ? 'translate-x-6 scale-110' : 'translate-x-1 scale-100'}`} />
       </div>
     </label>
   );
@@ -628,89 +628,123 @@ export default function Settings() {
           {/* LINE OA Integration */}
           {activeTab === 'line_oa' && (
             <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3">
-                <h2 className="text-xl font-bold">เชื่อมต่อ LINE Official Account</h2>
-                {!isAddingLine && (
-                  <button onClick={() => setIsAddingLine(true)} className="px-4 py-2 bg-[#00B900] text-white text-sm font-bold rounded-lg hover:bg-[#009900] transition flex items-center gap-2">
-                    <Plus size={16} /> เพิ่มร้านค้า LINE
-                  </button>
-                )}
+              <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-[#00B900] flex items-center justify-center text-white">
+                  <MessageCircle size={22} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">เชื่อมต่อ LINE Official Account</h2>
+                  <p className="text-xs text-gray-400">ดึงแชทจาก LINE มาตอบในหน้าระบบ CRM เดียวกัน</p>
+                </div>
               </div>
               
               {!isAddingLine ? (
                 <div className="space-y-4">
                   {lineAccounts.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
-                      <MessageCircle size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                      <p>ยังไม่มีบัญชี LINE ที่เชื่อมต่อไว้</p>
-                      <p className="text-sm mt-1">กดปุ่ม "เพิ่มร้านค้า LINE" ด้านบนเพื่อเริ่มดึงแชทมาตอบในหน้าระบบ</p>
+                    <div className="p-10 text-center border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl bg-gray-50/50 dark:bg-gray-900/20">
+                      <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-6">
+                        <MessageCircle size={40} className="text-[#00B900] opacity-40" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">ยังไม่มีการเชื่อมต่อ LINE</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 max-w-sm mx-auto leading-relaxed">เชื่อมต่อ LINE Official Account เพื่อรับข้อความและจัดการออเดอร์จากลูกค้าได้โดยตรง</p>
+                      
+                      <button 
+                        onClick={() => setIsAddingLine(true)} 
+                        className="px-8 py-3.5 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-2xl shadow-xl shadow-green-500/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 mx-auto"
+                      >
+                        <Plus size={20} /> เชื่อมต่อ LINE OA
+                      </button>
                     </div>
                   ) : (
-                    lineAccounts.map(account => {
-                      const apiBase = import.meta.env.VITE_API_URL || 'https://api.omnipage.app';
-                      const webhookUrl = `${apiBase}/api/chats/line/webhook/${account.id}`;
-                      
-                      return (
-                        <div key={account.id} className="p-5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-4">
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-[#00B900] rounded-xl text-white flex items-center justify-center overflow-hidden">
-                                {account.picture_url ? <img src={account.picture_url} alt="Profile" className="w-full h-full object-cover" /> : <MessageCircle size={24} />}
+                    <div className="space-y-4">
+                      {lineAccounts.map(account => {
+                        const apiBase = import.meta.env.VITE_API_URL || 'https://my-crm-apis.onrender.com';
+                        const webhookUrl = `${apiBase}/api/chats/line/webhook/${account.id}`;
+                        
+                        return (
+                          <div key={account.id} className="p-6 border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl shadow-sm space-y-4 transition hover:shadow-md">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-[#00B900] rounded-2xl text-white flex items-center justify-center overflow-hidden shadow-inner">
+                                  {account.picture_url ? <img src={account.picture_url} alt="Profile" className="w-full h-full object-cover" /> : <MessageCircle size={28} />}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{account.name}</h3>
+                                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[10px] font-black rounded-lg uppercase tracking-widest border border-green-200 dark:border-green-800">Online</span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 font-mono mt-0.5 font-semibold">Channel ID: {account.id.split('-').shift()}****</p>
+                                </div>
                               </div>
-                              <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white text-lg">{account.name}</h3>
-                                <p className="text-xs text-gray-400 font-mono">ID: {account.id.split('-').shift()}****</p>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => handleDeleteLineAccount(account.id)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition" title="ลบการเชื่อมต่อ">
+                                  <Trash2 size={20} />
+                                </button>
                               </div>
                             </div>
-                            <button onClick={() => handleDeleteLineAccount(account.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition" title="ลบการเชื่อมต่อ">
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                          
-                          <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg flex items-center justify-between border border-green-200 dark:border-green-800">
-                            <div>
-                              <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1 flex items-center gap-1"><Zap size={10} /> Webhook (ลงทะเบียนอัตโนมัติแล้ว)</p>
-                              <code className="text-xs text-green-700 break-all font-mono">{webhookUrl}</code>
+                            
+                            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-center justify-between gap-3">
+                              <div className="flex-1 min-w-0 w-full">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><Zap size={10} className="text-amber-500" /> Webhook URL</p>
+                                <div className="p-2.5 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 font-mono text-[11px] text-gray-600 dark:text-gray-400 break-all select-all">
+                                  {webhookUrl}
+                                </div>
+                              </div>
+                              <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm group">
+                                <Copy size={18} className="text-gray-400 group-hover:text-[#00B900]" />
+                              </button>
                             </div>
-                            <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="ml-4 p-2.5 bg-white dark:bg-gray-800 border border-green-200 dark:border-gray-700 rounded-lg hover:bg-green-50 transition shrink-0">
-                              <Copy size={16} className="text-green-600" />
-                            </button>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+                      <button 
+                        onClick={() => setIsAddingLine(true)} 
+                        className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Plus size={20} /> เพิ่มร้านค้า LINE OA อื่นๆ
+                      </button>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-4 animate-fade-in p-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-800">
+                <div className="space-y-6 animate-fade-in p-6 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-xl">
+                  <div className="flex justify-between items-start pb-4 border-b border-gray-100 dark:border-gray-700">
                     <div>
-                      <p className="font-bold text-gray-700 dark:text-gray-300">เพิ่มช่องทาง LINE OA</p>
-                      <p className="text-xs text-[#00B900] mt-0.5 flex items-center gap-1"><Zap size={11} /> ระบบจะลงทะเบียน Webhook ให้อัตโนมัติ ไม่ต้องตั้งค่าเพิ่ม</p>
+                      <h3 className="font-bold text-gray-900 dark:text-white text-xl">เชื่อมต่อ LINE OA</h3>
+                      <p className="text-sm text-gray-400 mt-1">คัดลอกข้อมูลจากหน้า LINE Developers</p>
                     </div>
-                    <button onClick={() => setIsAddingLine(false)} className="text-sm text-gray-500 hover:underline">ยกเลิก</button>
+                    <button onClick={() => setIsAddingLine(false)} className="p-2 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 transition"><X size={20} className="text-gray-400" /></button>
                   </div>
-                  <div className="space-y-4 pt-2">
+                  
+                  <div className="grid grid-cols-1 gap-5">
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300">ชื่อร้านที่จะแสดงในระบบ</label>
-                      <input type="text" value={newLineAccount.name} onChange={e => setNewLineAccount({...newLineAccount, name: e.target.value})} placeholder="เช่น ร้านกระเป๋าแฟชั่น" className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300">Channel Secret</label>
-                      <input type="password" value={newLineAccount.channel_secret} onChange={e => setNewLineAccount({...newLineAccount, channel_secret: e.target.value})} placeholder="นำมาจากแท็บ Basic Settings ในโหมดนักพัฒนา" className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300">Channel Access Token (Long-lived)</label>
-                      <textarea rows={3} value={newLineAccount.access_token} onChange={e => setNewLineAccount({...newLineAccount, access_token: e.target.value})} placeholder="นำมาจากแท็บ Messaging API" className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none resize-none" />
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">ชื่อร้านที่จะแสดงในระบบ <span className="text-red-500">*</span></label>
+                      <input type="text" value={newLineAccount.name} onChange={e => setNewLineAccount({...newLineAccount, name: e.target.value})} placeholder="เช่น ร้านกระเป๋าแฟชั่น" className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none transition-all font-medium" />
                     </div>
                     
-                    <button onClick={handleCreateLineAccount} disabled={isAddingLine === 'loading'} className="w-full py-4 bg-[#00B900] hover:bg-[#009900] disabled:opacity-60 text-white font-bold rounded-xl transition flex justify-center items-center gap-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Channel Secret <span className="text-red-500">*</span></label>
+                      <input type="password" value={newLineAccount.channel_secret} onChange={e => setNewLineAccount({...newLineAccount, channel_secret: e.target.value})} placeholder="จากแท็บ Basic Settings" className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none transition-all" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Channel Access Token <span className="text-red-500">*</span></label>
+                        <a href="https://manager.line.biz" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-[#00B900] hover:underline uppercase tracking-widest font-mono">คู่มือหา Token 👉</a>
+                      </div>
+                      <textarea rows={3} value={newLineAccount.access_token} onChange={e => setNewLineAccount({...newLineAccount, access_token: e.target.value})} placeholder="จากแท็บ Messaging API" className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none transition-all resize-none font-mono text-xs" />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 flex flex-col gap-3">
+                    <button onClick={handleCreateLineAccount} disabled={isAddingLine === 'loading'} className="w-full py-4 bg-[#00B900] hover:bg-[#009900] disabled:opacity-50 text-white font-bold rounded-2xl shadow-lg shadow-green-500/20 transition-all flex justify-center items-center gap-2 text-lg">
                       {isAddingLine === 'loading' ? (
-                        <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> กำลังเชื่อมต่อและตั้งค่า Webhook...</>
+                        <><span className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin" /> กำลังตรวจสอบระบบ...</>
                       ) : (
-                        <><MessageCircle size={20} /> เชื่อมต่อ LINE OA และตั้งค่า Webhook อัตโนมัติ</>
+                        <><MessageCircle size={22} /> บันทึกการเชื่อมต่อ LINE</>
                       )}
                     </button>
+                    <p className="text-[11px] text-center text-gray-400 font-medium italic">ใช้เวลาเพียง 1-2 นาที เมื่อบันทึกสำเร็จระบบจะดึงแชทล่าสุดให้ทันที</p>
                   </div>
                 </div>
               )}
