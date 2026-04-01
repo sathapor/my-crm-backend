@@ -160,6 +160,11 @@ app.get('/privacy', (req, res) => {
   `);
 });
 
+// Public Root Route for Facebook Site Validation
+app.get('/', (req, res) => {
+  res.status(200).send('My CRM API - Services are operational.');
+});
+
 // Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'API is securely running' });
