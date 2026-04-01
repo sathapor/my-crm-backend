@@ -3,10 +3,11 @@
 // ============================================================
 import axios from 'axios';
 
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL
     ? `${import.meta.env.VITE_API_URL}/api`
-    : 'http://localhost:5000/api',
+    : isLocal ? 'http://localhost:5000/api' : 'https://my-crm-apis.onrender.com/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 });
