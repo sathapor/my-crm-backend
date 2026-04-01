@@ -94,12 +94,16 @@ exports.sendMessage = async (req, res) => {
       let fbToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
       let fbIdToUse = conv.facebook_account_id;
 
-      // 🆕 Fallback: ถ้าแชทนี้ไม่มี facebook_account_id ผูกไว้ ให้ลองหาอันที่ว่างอยู่
+      // 🆕 [Reliability] ถ้าแชทนี้ไม่มี facebook_account_id ผูกไว้ ให้ลองหาก่อนส่ง
       if (!fbIdToUse) {
+        // ลองหาว่า User นี้เคยคุยมาทาง Page ID ไหน (ถ้ามีบันทึกไว้ในข้อความหรือ metadata อื่น - แต่ที่นี่ใช้วิธีหา account ตัวแรกที่ active)
         const { data: firstAcc } = await supabase.from('facebook_accounts').select('id, access_token').limit(1).single();
         if (firstAcc) {
           fbIdToUse = firstAcc.id;
           fbToken = firstAcc.access_token;
+          
+          // 🛡️ [Self-Healing] อัปเดตผูก ID กลับไปที่บทสนทนาเลย เพื่อให้ครั้งหน้าไม่ต้องหาใหม่
+          await supabase.from('chat_conversations').update({ facebook_account_id: fbIdToUse }).eq('id', conversationId);
         }
       } else {
         const { data: fbAcc } = await supabase.from('facebook_accounts').select('access_token').eq('id', fbIdToUse).single();

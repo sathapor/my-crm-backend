@@ -10,8 +10,10 @@ import api from '../api';
 import { io } from 'socket.io-client';
 
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
-const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-api.onrender.com';
+const rawSocketURL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
+// 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก URL อัตโนมัติ (ป้องกัน typo จาก Vercel Env)
+const SOCKET_URL = rawSocketURL.replace('my-crm-apis.onrender.com', 'my-crm-api.onrender.com');
+const EFFECTIVE_API_BASE = SOCKET_URL;
 
 // Helper: แปลง imageUrl ให้ถูกต้องเสมอ ไม่ว่าจะเก็บเป็น relative หรือ absolute
 // พิเศษ: หากรันบน localhost ให้บังคับใช้ localhost:5000 เสมอ เพื่อหลีกเลี่ยง LocalTunnel 503 Anti-Abuse Block
