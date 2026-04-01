@@ -145,6 +145,21 @@ app.use('/api/facebook-accounts', facebookAccountRoutes);
 const autoReplyRoutes = require('./routes/autoReplyRoutes');
 app.use('/api/auto-replies', autoReplyRoutes);
 
+// Public Privacy Policy for Facebook Validation
+app.get('/privacy', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>Privacy Policy - My CRM</title></head>
+    <body style="font-family: sans-serif; padding: 20px;">
+      <h1>Privacy Policy</h1>
+      <p>This application ("My CRM") uses your Facebook Messenger data solely to facilitate customer relationship management within this platform. We do not sell or share your data with third parties.</p>
+      <p>Data used: Messenger messages, User IDs, and Page tokens for automated messaging.</p>
+    </body>
+    </html>
+  `);
+});
+
 // Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'API is securely running' });
