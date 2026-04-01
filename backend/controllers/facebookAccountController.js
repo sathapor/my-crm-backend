@@ -13,9 +13,9 @@ exports.getFacebookAccounts = async (req, res) => {
       .from('facebook_accounts')
       .select('id, name, page_id, verify_token, picture_url, created_at');
     
-    // 🛡️ Multi-tenant Security: กรองเฉพาะของ User คนนี้เท่านั้น
+    // 🛡️ Multi-tenant Security: กรองเฉพาะของ User คนนี้ หรือข้อมูลเก่าที่ยังไม่มีเจ้าของ (Legacy data)
     if (userId) {
-      query = query.eq('user_id', userId);
+      query = query.or(`user_id.eq.${userId},user_id.is.null`);
     }
     
     const { data, error } = await query.order('created_at', { ascending: false });

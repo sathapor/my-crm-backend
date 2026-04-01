@@ -7,10 +7,17 @@
 exports.getLineAccounts = async (req, res) => {
   const supabase = req.app.get('supabase');
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('line_accounts')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    // 🛡️ Multi-tenant Security: กรองเฉพาะของ User คนนี้ หรือข้อมูลเก่าที่ยังไม่มีเจ้าของ (Legacy data)
+    const userId = req.user?.id;
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
@@ -31,9 +38,12 @@ exports.addLineAccount = async (req, res) => {
   }
 
   try {
+    // 🛡️ ระบุเจ้าของด้วย
+    const userId = req.user?.id;
+
     const { data, error } = await supabase
       .from('line_accounts')
-      .insert([{ name, channel_secret, access_token, picture_url }])
+      .insert([{ name, channel_secret, access_token, picture_url, user_id: userId }])
       .select('*')
       .single();
 
