@@ -139,6 +139,11 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('store');
   const [toastMsg, setToastMsg] = useState('');
 
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
   // LINE accounts state
   const [lineAccounts, setLineAccounts] = useState([]);
   const [newLineAccount, setNewLineAccount] = useState({ name: '', channel_secret: '', access_token: '', picture_url: '' });
@@ -428,10 +433,7 @@ export default function Settings() {
     twoFactor: false,
   });
 
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
+
 
   const saveSettings = () => {
     showToast('บันทึกการตั้งค่าสำเร็จ!');
