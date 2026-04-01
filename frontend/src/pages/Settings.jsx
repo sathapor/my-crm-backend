@@ -278,9 +278,49 @@ export default function Settings() {
   useEffect(() => {
     if (activeTab === 'facebook_page') {
       fetchFacebookAccounts();
+      // Only init SDK if strictly needed for other features, 
+      // but our new login flow doesn't depend on it.
       initFbSdk();
     }
   }, [activeTab]);
+
+  // 🆕 Nuclear Fix: Handle OAuth Callback from URL Hash
+  useEffect(() => {
+    if (window.location.hash.includes('access_token')) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        console.log('🎫 Captured FB Access Token from Redirect');
+        // Switch to selecting pages immediately
+        setActiveTab('facebook_page');
+        fetchFbPages(token);
+        // Clean the URL hash for a professional look
+        window.history.replaceState(null, null, window.location.pathname + window.location.search);
+      }
+    }
+  }, []);
+
+  const fetchFbPages = (token) => {
+    setFbLoginStatus('loading');
+    // Using fetch instead of FB.api to be independent of JSSDK status
+    const url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${token}`;
+    fetch(url)
+      .then(res => res.json())
+      .then(res => {
+        if (res.data && res.data.length > 0) {
+          setFbAvailablePages(res.data);
+          setFbLoginStatus('selecting');
+        } else {
+          showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล หรือยังไม่ได้อนุมัติสิทธิ์');
+          setFbLoginStatus('idle');
+        }
+      })
+      .catch(err => {
+        console.error('Fetch Pages Error:', err);
+        showToast('❌ เกิดข้อผิดพลาดในการดึงข้อมูลเพจ');
+        setFbLoginStatus('idle');
+      });
+  };
 
   const initFbSdk = () => {
     return new Promise((resolve) => {
@@ -337,40 +377,22 @@ export default function Settings() {
     });
   };
 
-  const handleFbLogin = async () => {
+  const handleFbLogin = () => {
     if (!fbAppId) {
       showToast('⚠️ กรุณาใส่ Facebook App ID ก่อนครับ');
       return;
     }
 
     setFbLoginStatus('loading');
-
-    // รอ SDK ให้พร้อมจริงๆ ก่อนเรียก login (Fix: FB.login() called before FB.init())
-    const ready = await initFbSdk();
-    if (!ready || !window.FB) {
-      showToast('❌ Facebook SDK โหลดไม่สำเร็จ กรุณาตรวจสอบ App ID หรือ Internet ชื่อต่อ');
-      setFbLoginStatus('idle');
-      return;
-    }
-
-    window.FB.login((response) => {
-      if (response.authResponse) {
-        const userToken = response.authResponse.accessToken;
-        // ดึงรายชื่อเพจที่ login user เป็น Admin
-        window.FB.api('/me/accounts', { access_token: userToken }, (pagesRes) => {
-          if (pagesRes && pagesRes.data && pagesRes.data.length > 0) {
-            setFbAvailablePages(pagesRes.data);
-            setFbLoginStatus('selecting');
-          } else {
-            setFbLoginStatus('idle');
-            showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล หรือยังไม่ได้อนุมัติสิทธิ์');
-          }
-        });
-      } else {
-        setFbLoginStatus('idle');
-        showToast('ยกเลิกการเข้าสู่ระบบ');
-      }
-    }, { scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile' });
+    
+    // 🆕 Nuclear Fix: Use Direct OAuth Redirect instead of FB.login()
+    // This ignores 'Unknown Host Domain' JSSDK errors entirely.
+    const redirectUri = window.location.origin + window.location.pathname;
+    const scope = 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile';
+    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
+    
+    console.log('🚀 Redirecting to FB OAuth Dialog...');
+    window.location.href = oauthUrl;
   };
 
 
@@ -393,7 +415,7 @@ export default function Settings() {
         page_id: page.id,
         access_token: page.access_token,
         verify_token: verifyToken,
-        picture_url: pictureUrl
+        picture_url: pictureUrl || `https://graph.facebook.com/${page.id}/picture?type=large`
       });
       if (res.data.success) {
         showToast(`✅ เชื่อมต่อ "${page.name}" สำเร็จ!`);
