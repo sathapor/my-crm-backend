@@ -883,6 +883,25 @@ export default function Settings() {
                     >
                       ยืนยันและบันทึกรหัสแอป
                     </button>
+                    
+                    {/* 🛠️ Debug Info for App ID Verification */}
+                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Terminal size={14} className="text-amber-600" />
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">🛠️ ข้อมูลทางเทคนิค (สำหรับตรวจสอบ)</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-gray-500">Current App ID:</span>
+                          <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{fbAppId || 'ยังไม่มี'}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-gray-500">SDK Status:</span>
+                          <span className={`font-bold ${isFbReady ? 'text-green-500' : 'text-red-500'}`}>{isFbReady ? 'พร้อมใช้งาน' : 'กำลังโหลด...'}</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[9px] text-amber-600 italic">💡 โปรดเช็คเลข ID นี้กับหน้า Dashboard ของ Facebook ให้ตรงกัน 100% ครับ</p>
+                    </div>
                   </div>
                 </div>
               )}
