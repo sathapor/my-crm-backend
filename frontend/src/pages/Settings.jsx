@@ -258,7 +258,8 @@ export default function Settings() {
   const [facebookAccounts, setFacebookAccounts] = useState([]);
   const [fbAvailablePages, setFbAvailablePages] = useState([]); // Pages returned after FB Login
   const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
-  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || localStorage.getItem('fb_app_id') || '1263587315899560'; // Hardcoded master App ID for SaaS experience
+  const [isFbReady, setIsFbReady] = useState(false);
+  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || '1263587315899560'; // Priority: Env > Master ID (Remove localStorage fallback to avoid 'dfg')
   const [connectingPageId, setConnectingPageId] = useState(null); // page currently being saved
 
   useEffect(() => {
@@ -282,9 +283,11 @@ export default function Settings() {
             version: 'v19.0'
           });
           console.log('✅ FB.init() successful');
+          setIsFbReady(true);
           resolve(true);
         } catch (err) {
           console.error('❌ FB.init() failed:', err);
+          setIsFbReady(false);
           resolve(false);
         }
       };

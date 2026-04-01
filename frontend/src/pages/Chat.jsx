@@ -9,12 +9,13 @@ import {
 import api from '../api';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-apis.onrender.com');
+const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-apis.onrender.com';
 
 // Helper: แปลง imageUrl ให้ถูกต้องเสมอ ไม่ว่าจะเก็บเป็น relative หรือ absolute
 // พิเศษ: หากรันบน localhost ให้บังคับใช้ localhost:5000 เสมอ เพื่อหลีกเลี่ยง LocalTunnel 503 Anti-Abuse Block
-const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-apis.onrender.com';
+// (isLocal and EFFECTIVE_API_BASE are defined above)
 
 const resolveImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
