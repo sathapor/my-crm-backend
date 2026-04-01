@@ -11,7 +11,6 @@ import { io } from 'socket.io-client';
 
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const rawSocketURL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
-// 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก URL อัตโนมัติ (ป้องกัน typo จาก Vercel Env)
 const SOCKET_URL = rawSocketURL.replace('my-crm-apis.onrender.com', 'my-crm-api.onrender.com');
 const EFFECTIVE_API_BASE = SOCKET_URL;
 
