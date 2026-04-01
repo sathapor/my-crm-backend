@@ -24,6 +24,7 @@ const io = new Server(server, {
         'http://localhost:5174',
         process.env.FRONTEND_URL,
         'https://easy-order-box.vercel.app',
+        'https://frontend-sathapors-projects.vercel.app',
       ].filter(Boolean);
       if (!origin || allowed.includes(origin)) callback(null, true);
       else callback(new Error(`Socket CORS: origin ${origin} not allowed`));
@@ -54,6 +55,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   process.env.FRONTEND_URL,
   'https://easy-order-box.vercel.app',
+  'https://frontend-sathapors-projects.vercel.app',
 ].filter(Boolean);
 
 app.use(cors({
