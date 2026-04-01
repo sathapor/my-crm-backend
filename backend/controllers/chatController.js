@@ -111,7 +111,6 @@ exports.sendMessage = async (req, res) => {
         const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
         let appSecretProof = null;
         if (FACEBOOK_APP_SECRET) {
-          const crypto = require('crypto');
           appSecretProof = crypto.createHmac('sha256', FACEBOOK_APP_SECRET).update(fbToken).digest('hex');
         }
 

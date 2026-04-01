@@ -391,20 +391,38 @@ export default function Settings() {
   };
 
   const handleFbLogin = () => {
-    if (!fbAppId) {
+    // 🛡️ [DEFENSIVE] Trim the App ID to ensure no hidden spaces cause PLATFORM_INVALID_APP_ID
+    const cleanId = String(fbAppId || '').trim();
+    if (!cleanId) {
       showToast('⚠️ กรุณาใส่ Facebook App ID ก่อนครับ');
       return;
     }
 
     setFbLoginStatus('loading');
-    
-    // 🆕 Nuclear Fix: Use Direct OAuth Redirect instead of FB.login()
-    // This ignores 'Unknown Host Domain' JSSDK errors entirely.
+
+    // 🚀 [PRO METHOD] Use FB.login if SDK is ready
+    if (window.FB && isFbReady) {
+      console.log('🚀 Using FB.login SDK method...');
+      window.FB.login((response) => {
+        if (response.authResponse) {
+          const token = response.authResponse.accessToken;
+          console.log('🎫 Captured FB Access Token from SDK Login');
+          fetchFbPages(token);
+        } else {
+          console.warn('❌ FB.login cancelled or failed');
+          setFbLoginStatus('idle');
+          showToast('❌ การเข้าสู่ระบบถูกยกเลิก');
+        }
+      }, { scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile' });
+      return;
+    }
+
+    // 🔄 [FALLBACK] Direct OAuth Redirect (if SDK fails to load)
+    console.log('🔄 SDK not ready, falling back to Direct OAuth Redirect...');
     const redirectUri = window.location.origin + window.location.pathname;
     const scope = 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile';
-    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
+    const oauthUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${cleanId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
     
-    console.log('🚀 Redirecting to FB OAuth Dialog...');
     window.location.href = oauthUrl;
   };
 
