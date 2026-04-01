@@ -92,12 +92,22 @@ exports.sendMessage = async (req, res) => {
     // 3B. ถ้าลูกค้ามี facebook_user_id ให้ส่งกลับผ่าน Facebook Graph API
     if (conv.facebook_user_id) {
       let fbToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
-      if (conv.facebook_account_id) {
-        const { data: fbAcc } = await supabase.from('facebook_accounts').select('access_token').eq('id', conv.facebook_account_id).single();
+      let fbIdToUse = conv.facebook_account_id;
+
+      // 🆕 Fallback: ถ้าแชทนี้ไม่มี facebook_account_id ผูกไว้ ให้ลองหาอันที่ว่างอยู่
+      if (!fbIdToUse) {
+        const { data: firstAcc } = await supabase.from('facebook_accounts').select('id, access_token').limit(1).single();
+        if (firstAcc) {
+          fbIdToUse = firstAcc.id;
+          fbToken = firstAcc.access_token;
+        }
+      } else {
+        const { data: fbAcc } = await supabase.from('facebook_accounts').select('access_token').eq('id', fbIdToUse).single();
         if (fbAcc && fbAcc.access_token) fbToken = fbAcc.access_token;
       }
+
       if (fbToken) {
-        console.log('Pushing to Facebook: ', conv.facebook_user_id);
+        console.log(`📤 [FB] Sending to: ${conv.facebook_user_id} using token for Account: ${fbIdToUse}`);
         const fbRes = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${fbToken}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -109,10 +119,16 @@ exports.sendMessage = async (req, res) => {
         const fbText = await fbRes.text();
         if (!fbRes.ok) {
           console.error('🚫 Facebook Send Error:', fbRes.status, fbText);
-          throw new Error(`Facebook Error: ${fbText}`);
-        } else {
-          console.log(`✅ Push Message to Facebook User ${conv.facebook_user_id} success!`);
-        }
+          // Don't just throw, provide a clear error message to frontend
+          return res.status(fbRes.status === 401 ? 401 : 500).json({ 
+            success: false, 
+            error: `Facebook API Error: ${fbText}`,
+            fbStatus: fbRes.status 
+          });
+        } 
+        console.log(`✅ Push Message to Facebook User ${conv.facebook_user_id} success!`);
+      } else {
+        console.warn('⚠️ No Facebook Token found for this message');
       }
     }
 

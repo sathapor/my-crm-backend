@@ -59,10 +59,19 @@ exports.addFacebookAccount = async (req, res) => {
       }
     }
 
-    // 2. บันทึกลง Database
+    // 2. บันทึกลง Database - ใช้ upsert เพื่อรองรับการเชื่อมต่อซ้ำ (Reconnect)
+    // โดยใช้ page_id เป็นตัวเช็คความซ้ำ (Conflict)
     const { data, error } = await supabase
       .from('facebook_accounts')
-      .insert([{ name, page_id, access_token, verify_token, app_secret: app_secret || null, picture_url: picture_url || null }])
+      .upsert([{ 
+        name, 
+        page_id, 
+        access_token, 
+        verify_token, 
+        app_secret: app_secret || null, 
+        picture_url: picture_url || null,
+        updated_at: new Date().toISOString()
+      }], { onConflict: 'page_id' })
       .select('id, name, page_id, verify_token, picture_url, created_at')
       .single();
 
