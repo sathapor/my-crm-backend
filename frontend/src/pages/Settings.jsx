@@ -273,6 +273,7 @@ export default function Settings() {
   const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
   const [isFbReady, setIsFbReady] = useState(false);
   const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || '1263587315899560'; // Priority: Env > Master ID (Remove localStorage fallback to avoid 'dfg')
+  const [isFetchingFb, setIsFetchingFb] = useState(false); // 🆕 Track loading state
   const [connectingPageId, setConnectingPageId] = useState(null); // page currently being saved
 
   useEffect(() => {
@@ -432,11 +433,16 @@ export default function Settings() {
   };
 
   const fetchFacebookAccounts = async () => {
+    setIsFetchingFb(true); // 🆕 Start loading
     try {
       const res = await api.get('/facebook-accounts');
-      if (res.data.success) setFacebookAccounts(res.data.data);
+      if (res.data.success) {
+        setFacebookAccounts(res.data.data || []);
+      }
     } catch (err) {
       showToast('❌ ไม่สามารถดึงข้อมูลบัญชี Facebook ได้');
+    } finally {
+      setIsFetchingFb(false); // 🆕 End loading
     }
   };
 
@@ -818,88 +824,96 @@ export default function Settings() {
               {/* APP ID ตั้งค่าแล้ว */}
               {fbAppId && (
                 <>
-                  {/* Connected Pages */}
-                  {facebookAccounts.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพจที่เชื่อมต่อแล้ว ({facebookAccounts.length})</p>
-                      {facebookAccounts.map(account => {
-                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                        const webhookUrl = `${apiBase}/api/chats/facebook/webhook/${account.id}`;
-                        return (
-                          <div key={account.id} className="p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-xl bg-[#1877F2] flex items-center justify-center text-white overflow-hidden shrink-0">
-                                  {account.picture_url ? <img src={account.picture_url} alt="" className="w-full h-full object-cover" /> : <Facebook size={22} />}
-                                </div>
-                                <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">{account.name}</p>
-                                  <p className="text-xs text-green-500 font-semibold flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span> เชื่อมต่อแล้ว
-                                  </p>
-                                </div>
-                              </div>
-                              <button onClick={() => handleDeleteFbAccount(account.id)} className="text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                            {/* Webhook info (collapsed) */}
-                            <details className="mt-3">
-                              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">แสดง Webhook URL สำหรับ Facebook App Dashboard ▾</summary>
-                              <div className="mt-2 space-y-2">
-                                <div className="p-2.5 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between">
-                                  <code className="text-xs text-blue-600 dark:text-blue-400 break-all font-mono">{webhookUrl}</code>
-                                  <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="ml-2 p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
-                                    <Copy size={13} className="text-gray-500" />
+                  {isFetchingFb ? (
+                    <div className="space-y-4 animate-pulse">
+                      <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
+                      <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Connected Pages */}
+                      {facebookAccounts.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพจที่เชื่อมต่อแล้ว ({facebookAccounts.length})</p>
+                          {facebookAccounts.map(account => {
+                            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                            const webhookUrl = `${apiBase}/api/chats/facebook/webhook/${account.id}`;
+                            return (
+                              <div key={account.id} className="p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-xl bg-[#1877F2] flex items-center justify-center text-white overflow-hidden shrink-0">
+                                      {account.picture_url ? <img src={account.picture_url} alt="" className="w-full h-full object-cover" /> : <Facebook size={22} />}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-gray-900 dark:text-white">{account.name}</p>
+                                      <p className="text-xs text-green-500 font-semibold flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span> เชื่อมต่อแล้ว
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button onClick={() => handleDeleteFbAccount(account.id)} className="text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition">
+                                    <Trash2 size={16} />
                                   </button>
                                 </div>
-                                <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-between">
-                                  <span className="text-xs text-gray-500 mr-2">Verify Token:</span>
-                                  <code className="text-xs text-blue-700 font-mono flex-1">{account.verify_token}</code>
-                                  <button onClick={() => { navigator.clipboard.writeText(account.verify_token); showToast('คัดลอก Verify Token แล้ว!'); }} className="p-1.5 hover:bg-blue-100 rounded">
-                                    <Copy size={13} className="text-blue-600" />
-                                  </button>
-                                </div>
+                                {/* Webhook info (collapsed) */}
+                                <details className="mt-3">
+                                  <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">แสดง Webhook URL สำหรับ Facebook App Dashboard ▾</summary>
+                                  <div className="mt-2 space-y-2">
+                                    <div className="p-2.5 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between">
+                                      <code className="text-xs text-blue-600 dark:text-blue-400 break-all font-mono">{webhookUrl}</code>
+                                      <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="ml-2 p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
+                                        <Copy size={13} className="text-gray-500" />
+                                      </button>
+                                    </div>
+                                    <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-between">
+                                      <span className="text-xs text-gray-500 mr-2">Verify Token:</span>
+                                      <code className="text-xs text-blue-700 font-mono flex-1">{account.verify_token}</code>
+                                      <button onClick={() => { navigator.clipboard.writeText(account.verify_token); showToast('คัดลอก Verify Token แล้ว!'); }} className="p-1.5 hover:bg-blue-100 rounded">
+                                        <Copy size={13} className="text-blue-600" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </details>
                               </div>
-                            </details>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Page Selector (shown after FB Login) — Facebook OAuth Style */}
+                      {fbLoginStatus === 'selecting' && fbAvailablePages.length > 0 && (
+                        <FbPageSelector
+                          pages={fbAvailablePages}
+                          connectedAccounts={facebookAccounts}
+                          connectingPageId={connectingPageId}
+                          onConnect={handleConnectPage}
+                          onClose={() => { setFbLoginStatus('idle'); setFbAvailablePages([]); }}
+                        />
+                      )}
+
+                      {/* Main Connect Button */}
+                      {fbLoginStatus !== 'selecting' && (
+                        <div className="pt-2">
+                          <button
+                            onClick={handleFbLogin}
+                            disabled={fbLoginStatus === 'loading'}
+                            className="w-full py-4 bg-[#1877F2] hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-2xl transition flex items-center justify-center gap-3 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
+                          >
+                            {fbLoginStatus === 'loading' ? (
+                              <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span> กำลังเชื่อมต่อ Facebook...</>
+                            ) : (
+                              <><Facebook size={22} /> {facebookAccounts.length > 0 ? 'เพิ่มเพจ Facebook อื่น' : 'เชื่อมต่อด้วย Facebook'}</>
+                            )}
+                          </button>
+                          <div className="mt-4 text-center">
+                            <p className="text-[10px] text-gray-500 bg-gray-50 py-2 px-3 rounded-lg border border-gray-100 italic">
+                              ℹ️ ระบบเชื่อมต่ออัตโนมัติ 100% โดย OmniPage SaaS - หมดกังวลเรื่องตั้งค่า Webhook ผู้ใช้เพียงล็อคอินเท่านั้น!
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-
-                  {/* Page Selector (shown after FB Login) — Facebook OAuth Style */}
-                  {fbLoginStatus === 'selecting' && fbAvailablePages.length > 0 && (
-                    <FbPageSelector
-                      pages={fbAvailablePages}
-                      connectedAccounts={facebookAccounts}
-                      connectingPageId={connectingPageId}
-                      onConnect={handleConnectPage}
-                      onClose={() => { setFbLoginStatus('idle'); setFbAvailablePages([]); }}
-                    />
-                  )}
-
-                  {/* Main Connect Button */}
-                  {fbLoginStatus !== 'selecting' && (
-                    <div className="pt-2">
-                      <button
-                        onClick={handleFbLogin}
-                        disabled={fbLoginStatus === 'loading'}
-                        className="w-full py-4 bg-[#1877F2] hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-2xl transition flex items-center justify-center gap-3 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
-                      >
-                        {fbLoginStatus === 'loading' ? (
-                          <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span> กำลังเชื่อมต่อ Facebook...</>
-                        ) : (
-                          <><Facebook size={22} /> {facebookAccounts.length > 0 ? 'เพิ่มเพจ Facebook อื่น' : 'เชื่อมต่อด้วย Facebook'}</>
-                        )}
-                      </button>
-                      <div className="mt-4 text-center">
-                        <p className="text-[10px] text-gray-500 bg-gray-50 py-2 px-3 rounded-lg border border-gray-100 italic">
-                          ℹ️ ระบบเชื่อมต่ออัตโนมัติ 100% โดย OmniPage SaaS - หมดกังวลเรื่องตั้งค่า Webhook ผู้ใช้เพียงล็อคอินเท่านั้น!
-                        </p>
-                      </div>
-                    </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
