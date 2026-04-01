@@ -11,6 +11,8 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_here_change_in_production';
 
 // Serve static uploaded files locally
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
@@ -33,6 +35,41 @@ const io = new Server(server, {
     credentials: true
   }
 });
+// ===================
+// SOCKET AUTH & EVENTS
+// ===================
+
+// Middleware ตรวจสอบ JWT Token ก่อนอนุญาตให้เชื่อมต่อ Socket
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    console.log('🔌 Socket connect attempt without token');
+    return next(); // อนุญาตสำหรับ Public events (ถ้ามี) แต่จะระบุตัวตนไม่ได้
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.user = decoded; // เก็บข้อมูล User ไว้ใน Socket object
+    console.log(`📡 User identified: ${decoded.email} (${decoded.id})`);
+    next();
+  } catch (err) {
+    console.warn('❌ Socket Auth Error:', err.message);
+    next(); // ยังให้ออนไลน์แต่ระบุตัวไม่ได้
+  }
+});
+
+io.on('connection', (socket) => {
+  if (socket.user?.id) {
+    // เข้าร่วมห้องแชทส่วนตัวตาม User ID
+    socket.join(socket.user.id);
+    console.log(`🏠 User ${socket.user.email} joined private room: ${socket.user.id}`);
+  }
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Socket disconnected:', socket.id);
+  });
+});
+
 app.set('io', io);
 
 // ===================

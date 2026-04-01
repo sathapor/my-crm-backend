@@ -10,8 +10,8 @@ import api from '../api';
 import { io } from 'socket.io-client';
 
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-apis.onrender.com');
-const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-apis.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
+const EFFECTIVE_API_BASE = isLocal ? 'http://localhost:5000' : import.meta.env.VITE_API_URL || 'https://my-crm-api.onrender.com';
 
 // Helper: แปลง imageUrl ให้ถูกต้องเสมอ ไม่ว่าจะเก็บเป็น relative หรือ absolute
 // พิเศษ: หากรันบน localhost ให้บังคับใช้ localhost:5000 เสมอ เพื่อหลีกเลี่ยง LocalTunnel 503 Anti-Abuse Block
@@ -283,7 +283,10 @@ export default function Chat() {
     fetchData();
 
     // ── Setup Sockets ──
-    const socket = io(SOCKET_URL);
+    const token = localStorage.getItem('token');
+    const socket = io(SOCKET_URL, {
+      auth: { token }
+    });
     
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
@@ -680,8 +683,8 @@ export default function Chat() {
                         : 'text-[#00B900] bg-[#00B900]/10'
                     }`}>
                       {chat.channel === 'facebook'
-                        ? (facebookAccounts.find(a => a.id === chat.facebook_account_id)?.name || '🔵 Facebook')
-                        : (lineAccounts.find(a => a.id === chat.line_account_id)?.name || 'ร้านทั่วไป (Default)')}
+                        ? (chat.facebook_accounts?.name || facebookAccounts.find(a => a.id === chat.facebook_account_id)?.name || '🔵 Facebook')
+                        : (chat.line_accounts?.name || lineAccounts.find(a => a.id === chat.line_account_id)?.name || 'ร้านทั่วไป (Default)')}
                     </div>
                     <div className="text-[11px] text-gray-500 truncate mb-1">{chat.last_message || 'เริ่มการสนทนา'}</div>
                     {order && <OrderBadge status={order.status} />}

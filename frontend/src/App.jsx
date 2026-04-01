@@ -36,13 +36,16 @@ import Register from './pages/Register';
 
 // Production-ready Socket URL
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-apis.onrender.com');
+const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
 
 function App() {
   const { addNotification } = useStore();
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    const token = localStorage.getItem('token');
+    const socket = io(SOCKET_URL, {
+      auth: { token }
+    });
 
     socket.on('connect', () => {
       console.log('📡 Global Socket Connected:', socket.id);

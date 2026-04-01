@@ -35,10 +35,10 @@ const checkAndSendAutoReply = async (req, conversationId, customerText) => {
 exports.getChats = async (req, res) => {
   const supabase = req.app.get('supabase');
   try {
-    // ดึงทั้ง LINE และ Facebook conversations
+    // ดึงทั้ง LINE และ Facebook conversations พร้อมข้อมูลชื่อบัญชี
     const { data, error } = await supabase
       .from('chat_conversations')
-      .select('*')
+      .select('*, facebook_accounts(name), line_accounts(name)')
       .order('updated_at', { ascending: false });
     if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
@@ -272,8 +272,16 @@ exports.lineWebhook = async (req, res) => {
         if (existUser) {
           // ถ้ามีลูกค้าเดิม อัปเดตข้อความต่อท้าย
           const updatedMessages = [...(existUser.messages || []), newMsg];
+          const updateObj = { messages: updatedMessages, last_message: text, updated_at: new Date().toISOString() };
+          
+          // 🛡️ [UPDATE] ผูกไอดีบัญชี LINE เข้ากับแชทถ้ายังไม่มี (เพื่อให้โชว์ชื่อร้านได้ถูกต้อง)
+          if (!existUser.line_account_id && accountId && accountId !== 'default') {
+            updateObj.line_account_id = accountId;
+          }
+          if (existUser.channel !== 'line') updateObj.channel = 'line';
+
           const { data: updatedRows } = await supabase.from('chat_conversations')
-            .update({ messages: updatedMessages, last_message: text, updated_at: new Date().toISOString() })
+            .update(updateObj)
             .eq('id', existUser.id)
             .select('*');
           updatedConv = (updatedRows && updatedRows.length > 0) ? updatedRows[0] : { ...existUser, messages: updatedMessages };
@@ -507,9 +515,17 @@ exports.facebookWebhook = async (req, res) => {
 
         if (existConv) {
           const updatedMessages = [...(existConv.messages || []), newMsg];
+          const updateObj = { messages: updatedMessages, last_message: msgText, updated_at: new Date().toISOString() };
+          
+          // 🛡️ [UPDATE] ผูกไอดีบัญชี Facebook ถ้ายังไม่มี
+          if (!existConv.facebook_account_id && fbAccountId) {
+            updateObj.facebook_account_id = fbAccountId;
+          }
+          if (existConv.channel !== 'facebook') updateObj.channel = 'facebook';
+
           const { data: rows } = await supabase
             .from('chat_conversations')
-            .update({ messages: updatedMessages, last_message: msgText, updated_at: new Date().toISOString() })
+            .update(updateObj)
             .eq('id', existConv.id)
             .select('*');
           updatedConv = rows && rows[0] ? rows[0] : { ...existConv, messages: updatedMessages };
