@@ -6,11 +6,19 @@
 // @route   GET /api/facebook-accounts
 exports.getFacebookAccounts = async (req, res) => {
   const supabase = req.app.get('supabase');
+  const userId = req.user?.id; // ดึงจาก JWT Middleware
+
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('facebook_accounts')
-      .select('id, name, page_id, verify_token, picture_url, created_at')
-      .order('created_at', { ascending: false });
+      .select('id, name, page_id, verify_token, picture_url, created_at');
+    
+    // 🛡️ Multi-tenant Security: กรองเฉพาะของ User คนนี้เท่านั้น
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
@@ -40,8 +48,8 @@ exports.addFacebookAccount = async (req, res) => {
     if (publicUrl) {
       try {
         const callbackUrl = `${publicUrl}/api/chats/facebook/webhook`;
-        const verifyTokenToUse = verify_token || process.env.FACEBOOK_VERIFY_TOKEN || 'crm_facebook_verify_token_2024';
-        const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1263587315899560';
+        const verifyTokenToUse = verify_token || process.env.FACEBOOK_VERIFY_TOKEN || 'my_crm_verify_token';
+        const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '202208148688114';
         const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || app_secret;
 
         // Subscribe the Page to receive Webhook events
@@ -61,6 +69,7 @@ exports.addFacebookAccount = async (req, res) => {
 
     // 2. บันทึกลง Database - ใช้ upsert เพื่อรองรับการเชื่อมต่อซ้ำ (Reconnect)
     // โดยใช้ page_id เป็นตัวเช็คความซ้ำ (Conflict)
+    const userId = req.user?.id;
     const { data, error } = await supabase
       .from('facebook_accounts')
       .upsert([{ 
@@ -68,6 +77,7 @@ exports.addFacebookAccount = async (req, res) => {
         page_id, 
         access_token, 
         verify_token, 
+        user_id: userId, // 🛡️ ผูกกับ User ID ของผู้ที่ล็อกอิน
         app_secret: app_secret || null, 
         picture_url: picture_url || null,
         updated_at: new Date().toISOString()

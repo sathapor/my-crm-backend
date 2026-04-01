@@ -268,11 +268,18 @@ export default function Settings() {
   };
 
   // === Facebook Page state ===
-  const [facebookAccounts, setFacebookAccounts] = useState([]);
-  const [fbAvailablePages, setFbAvailablePages] = useState([]); // Pages returned after FB Login
-  const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
-  const [isFbReady, setIsFbReady] = useState(false);
-  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || '1263587315899560'; // Priority: Env > Master ID (Remove localStorage fallback to avoid 'dfg')
+  // 🚀 Master Facebook App Config (Page365 Style)
+  // Priority: 1. Environment Variable 2. localStorage 3. Default Master ID
+  const MASTER_APP_ID = '202208148688114';
+  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || localStorage.getItem('fb_app_id') || MASTER_APP_ID;
+  const fbAppSecret = import.meta.env.VITE_FACEBOOK_APP_SECRET || localStorage.getItem('fb_app_secret') || '';
+  
+  const [fbAppIdInput, setFbAppIdInput] = useState(fbAppId);
+  const [fbAppSecretInput, setFbAppSecretInput] = useState(fbAppSecret);
+  
+  // Checking if we are using the Global/Environment-based config
+  const isGlobalConfig = !!import.meta.env.VITE_FACEBOOK_APP_ID;
+
   const [isFetchingFb, setIsFetchingFb] = useState(false); // 🆕 Track loading state
   const [connectingPageId, setConnectingPageId] = useState(null); // page currently being saved
 
@@ -489,6 +496,20 @@ export default function Settings() {
     if (security.newPassword !== security.confirmPassword) { showToast('⚠️ รหัสผ่านใหม่ไม่ตรงกัน'); return; }
     setSecurity({ ...security, currentPassword: '', newPassword: '', confirmPassword: '' });
     showToast('✅ เปลี่ยนรหัสผ่านสำเร็จ!');
+  };
+
+  const saveAppId = () => {
+    if (!fbAppIdInput || !fbAppSecretInput) {
+      showToast('⚠️ กรุณากรอกทั้ง App ID และ App Secret ครับ');
+      return;
+    }
+    localStorage.setItem('fb_app_id', fbAppIdInput);
+    localStorage.setItem('fb_app_secret', fbAppSecretInput);
+    setFbAppId(fbAppIdInput);
+    setFbAppSecret(fbAppSecretInput);
+    showToast('✅ บันทึกรหัสแอปสำเร็จ! เริ่มการเชื่อมต่อได้เลยครับ');
+    // Refresh accounts after setting new ID
+    setTimeout(() => fetchFacebookAccounts(), 500);
   };
 
   return (
@@ -794,28 +815,50 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Step 1: ถ้ายังไม่มี App ID */}
-              {!fbAppId && (
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 border border-blue-100 dark:border-gray-700 rounded-2xl shadow-sm space-y-4">
+              {/* Step 1: Manual Setup — Hidden if Global Config exists (Page365 Style) */}
+              {!isGlobalConfig && !fbAppId && (
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 border border-blue-100 dark:border-gray-700 rounded-2xl shadow-sm space-y-5">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm shrink-0 border border-blue-100 dark:border-gray-700">
                       <span className="text-2xl">🔑</span>
                     </div>
                     <div>
                       <p className="font-bold text-gray-900 dark:text-white text-lg">เริ่มต้นเชื่อมต่อ Facebook</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">คัดลอก <strong>App ID</strong> จากหน้า <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Facebook Developers</a> มาใส่ที่นี่เพื่อเริ่มต้นการเชื่อมต่อแบบอัตโนมัติ</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                        คัดลอกรหัสจากหน้า <strong>Facebook Developers</strong> 
+                        (เลือกแอปของคุณ {'>'} การตั้งค่า {'>'} ข้อมูลเบื้องต้น)
+                      </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 bg-white dark:bg-gray-900 p-1 rounded-xl border border-blue-200 dark:border-gray-700 shadow-sm focus-within:ring-2 focus-within:ring-blue-400 transition-all">
-                    <input
-                      type="text"
-                      value={fbAppIdInput}
-                      onChange={e => setFbAppIdInput(e.target.value)}
-                      placeholder="วาง App ID ของคุณที่นี่..."
-                      className="flex-1 p-3 bg-transparent focus:outline-none font-mono text-sm dark:text-white"
-                    />
-                    <button onClick={saveAppId} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm shadow-blue-500/20">
-                      ยืนยัน
+
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Facebook App ID</label>
+                      <input
+                        type="text"
+                        value={fbAppIdInput}
+                        onChange={e => setFbAppIdInput(e.target.value)}
+                        placeholder="วาง App ID ที่นี่..."
+                        className="w-full p-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-mono text-sm dark:text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Facebook App Secret</label>
+                      <input
+                        type="password"
+                        value={fbAppSecretInput}
+                        onChange={e => setFbAppSecretInput(e.target.value)}
+                        placeholder="วาง App Secret ที่นี่..."
+                        className="w-full p-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-mono text-sm dark:text-white"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={saveAppId} 
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+                    >
+                      ยืนยันและบันทึกรหัสแอป
                     </button>
                   </div>
                 </div>
