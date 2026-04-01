@@ -378,7 +378,8 @@ exports.facebookWebhookVerify = async (req, res) => {
     // หากเกิด Error (เช่น ยังไม่มีข้อมูลเพจใน DB ระหว่างการ Verify ครั้งแรกบน Dashboard) 
     // ให้ยอมรับรหัสจาก .env หรือรหัสกลางไปก่อนเพื่อให้ Facebook ยอมรับ Callback URL ของเรา
     const serverToken = process.env.FACEBOOK_VERIFY_TOKEN || 'crm_facebook_verify_token_2024';
-    if (token === serverToken || token === 'crm_facebook_verify_token_2024') {
+    const newUserToken = 'my_crm_verify_token';
+    if (token === serverToken || token === 'crm_facebook_verify_token_2024' || token === newUserToken) {
       console.log('✅ Facebook Webhook verified using server-side or fallback token');
       return res.status(200).send(challenge);
     }
