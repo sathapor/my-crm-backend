@@ -350,7 +350,10 @@ exports.facebookWebhookVerify = async (req, res) => {
     if (findErr || !fbAcc) {
       console.warn(`[FB] Verify failed: Account not found for ID ${accountId}`);
       // ดูว่ามีรหัสกลางไหม
-      if (token === 'crm_facebook_verify_token_2024') {
+      const fallbackToken = 'crm_facebook_verify_token_2024';
+      const newUserToken = 'my_crm_verify_token';
+
+      if (token === fallbackToken || token === newUserToken) {
          console.log('✅ Facebook Webhook verified using fallback token (Account not in DB yet)');
          return res.status(200).send(challenge);
       }
@@ -360,9 +363,10 @@ exports.facebookWebhookVerify = async (req, res) => {
     // รองรับรหัสกลางที่เราแปะไป หรือรหัสที่เก็บใน DB หรือรหัสจาก .env ของเซิร์ฟเวอร์
     const expectedToken = fbAcc.verify_token || process.env.FACEBOOK_VERIFY_TOKEN || 'crm_facebook_verify_token_2024';
     const fallbackToken = 'crm_facebook_verify_token_2024';
+    const newUserToken = 'my_crm_verify_token'; // 🆕 เพิ่มเพื่อรองรับสิ่งที่เราเพิ่งบอกคนใช้ไป
 
-    if (token !== expectedToken && token !== fallbackToken) {
-      console.warn(`[FB] Invalid verify_token. Received: ${token}, Expected: ${expectedToken}`);
+    if (token !== expectedToken && token !== fallbackToken && token !== newUserToken) {
+      console.warn(`[FB] Invalid verify_token. Received: ${token}, Expected: ${token === newUserToken ? 'Matched' : 'Mismatch'}`);
       return res.status(403).send('Forbidden');
     }
 
