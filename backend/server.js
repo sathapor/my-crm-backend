@@ -103,6 +103,16 @@ const loginLimiter = rateLimit({
 app.use('/api/auth/login', loginLimiter);
 
 // ===================
+// PUBLIC CONFIG ROUTES (Priority)
+// ===================
+app.get('/api/facebook/config', (req, res) => {
+  // 🛡️ Only expose the App ID, NEVER the App Secret.
+  // 🚀 MASTER APP ID: 2022008148688114
+  const appId = process.env.FACEBOOK_APP_ID || '2022008148688114'; 
+  res.json({ success: true, appId });
+});
+
+// ===================
 // ROUTES (Mounting)
 // ===================
 const authRoutes = require('./routes/authRoutes');

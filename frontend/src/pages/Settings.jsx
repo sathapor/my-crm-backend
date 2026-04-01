@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3, Terminal, ShoppingCart, CreditCard, MessageSquare } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3, Terminal, ShoppingCart, CreditCard, MessageSquare, AlertTriangle, X } from 'lucide-react';
 import api from '../api';
 
 // Toast component
@@ -269,90 +269,50 @@ export default function Settings() {
 
   // === Facebook Page state ===
   const [facebookAccounts, setFacebookAccounts] = useState([]);
-  const [fbAvailablePages, setFbAvailablePages] = useState([]); // Pages returned after FB Login
-  const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
+  const [fbAvailablePages, setFbAvailablePages] = useState([]); 
+  const [fbLoginStatus, setFbLoginStatus] = useState('idle'); 
   const [isFbReady, setIsFbReady] = useState(false);
+  const [fbMasterAppId, setFbMasterAppId] = useState('2022008148688114'); // 🛰️ NUCLEAR DEFAULT: 2022008148688114
   
-  // 🚀 Master Facebook App Config (Page365 Style)
-  // Priority: 1. Environment Variable 2. localStorage 3. Default Master ID
-  const MASTER_APP_ID = '202208148688114';
-  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID || localStorage.getItem('fb_app_id') || MASTER_APP_ID;
-  const fbAppSecret = import.meta.env.VITE_FACEBOOK_APP_SECRET || localStorage.getItem('fb_app_secret') || '';
-  
-  const [fbAppIdInput, setFbAppIdInput] = useState(fbAppId);
-  const [fbAppSecretInput, setFbAppSecretInput] = useState(fbAppSecret);
-  
-  // Checking if we are using the Global/Environment-based config
-  const isGlobalConfig = !!import.meta.env.VITE_FACEBOOK_APP_ID;
-
-  const [isFetchingFb, setIsFetchingFb] = useState(false); // 🆕 Track loading state
-  const [connectingPageId, setConnectingPageId] = useState(null); // page currently being saved
+  const [isFetchingFb, setIsFetchingFb] = useState(false); 
+  const [connectingPageId, setConnectingPageId] = useState(null); 
 
   useEffect(() => {
     if (activeTab === 'facebook_page') {
       fetchFacebookAccounts();
-      // Only init SDK if strictly needed for other features, 
-      // but our new login flow doesn't depend on it.
-      initFbSdk();
+      fetchFbConfig(); 
     }
   }, [activeTab]);
 
-  // 🆕 Nuclear Fix: Handle OAuth Callback from URL Hash
-  useEffect(() => {
-    if (window.location.hash.includes('access_token')) {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const token = params.get('access_token');
-      if (token) {
-        console.log('🎫 Captured FB Access Token from Redirect');
-        // Switch to selecting pages immediately
-        setActiveTab('facebook_page');
-        fetchFbPages(token);
-        // Clean the URL hash for a professional look
-        window.history.replaceState(null, null, window.location.pathname + window.location.search);
+  const fetchFbConfig = async () => {
+    try {
+      const res = await api.get('/facebook/config');
+      if (res.data.success) {
+        console.log('🏗️ Loaded Master App Config:', res.data.appId);
+        setFbMasterAppId(res.data.appId);
+        initFbSdk(res.data.appId);
       }
+    } catch (err) {
+      console.error('Failed to load Master App config');
     }
-  }, []);
-
-  const fetchFbPages = (token) => {
-    setFbLoginStatus('loading');
-    // Using fetch instead of FB.api to be independent of JSSDK status
-    const url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${token}`;
-    fetch(url)
-      .then(res => res.json())
-      .then(res => {
-        if (res.data && res.data.length > 0) {
-          setFbAvailablePages(res.data);
-          setFbLoginStatus('selecting');
-        } else {
-          showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล หรือยังไม่ได้อนุมัติสิทธิ์');
-          setFbLoginStatus('idle');
-        }
-      })
-      .catch(err => {
-        console.error('Fetch Pages Error:', err);
-        showToast('❌ เกิดข้อผิดพลาดในการดึงข้อมูลเพจ');
-        setFbLoginStatus('idle');
-      });
   };
 
-  const initFbSdk = () => {
+  const initFbSdk = (appIdToUse) => {
     return new Promise((resolve) => {
-      console.log('🎬 Initializing FB SDK with ID:', fbAppId);
-      if (!fbAppId) return resolve(false);
-      
+      const targetId = appIdToUse || fbMasterAppId;
+      if (!targetId) return resolve(false);
+
       const setupFB = () => {
         try {
           window.FB.init({
-            appId: fbAppId,
+            appId: targetId,
             cookie: true,
             xfbml: true,
-            version: 'v19.0'
+            version: 'v21.0'
           });
-          console.log('✅ FB.init() successful');
           setIsFbReady(true);
           resolve(true);
         } catch (err) {
-          console.error('❌ FB.init() failed:', err);
           setIsFbReady(false);
           resolve(false);
         }
@@ -362,11 +322,7 @@ export default function Settings() {
         setupFB();
         return;
       }
-      
-      window.fbAsyncInit = function () {
-        setupFB();
-      };
-      
+      window.fbAsyncInit = setupFB;
       if (!document.getElementById('facebook-jssdk')) {
         const script = document.createElement('script');
         script.id = 'facebook-jssdk';
@@ -374,55 +330,70 @@ export default function Settings() {
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
-      } else {
-        let attempts = 0;
-        const interval = setInterval(() => {
-          attempts++;
-          if (window.FB) {
-            clearInterval(interval);
-            setupFB();
-          } else if (attempts > 50) {
-            clearInterval(interval);
-            resolve(false);
-          }
-        }, 100);
       }
     });
   };
 
+  // 🆕 Nuclear Fix: Handle OAuth Callback from URL Hash
+  useEffect(() => {
+    if (window.location.hash.includes('access_token')) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        setActiveTab('facebook_page');
+        fetchFbPages(token);
+        window.history.replaceState(null, null, window.location.pathname + window.location.search);
+      }
+    }
+  }, []);
+
+  const fetchFbPages = (token) => {
+    setFbLoginStatus('loading');
+    const url = `https://graph.facebook.com/v21.0/me/accounts?access_token=${token}`;
+    fetch(url)
+      .then(res => res.json())
+      .then(res => {
+        if (res.data && res.data.length > 0) {
+          setFbAvailablePages(res.data);
+          setFbLoginStatus('selecting');
+        } else {
+          showToast('⚠️ ไม่พบเพจที่คุณเป็นผู้ดูแล');
+          setFbLoginStatus('idle');
+        }
+      })
+      .catch(() => {
+        showToast('❌ ข้อผิดพลาดในการดึงข้อมูลเพจ');
+        setFbLoginStatus('idle');
+      });
+  };
+
   const handleFbLogin = () => {
-    // 🛡️ [DEFENSIVE] Trim the App ID to ensure no hidden spaces cause PLATFORM_INVALID_APP_ID
-    const cleanId = String(fbAppId || '').trim();
+    const cleanId = String(fbMasterAppId || '').trim();
     if (!cleanId) {
-      showToast('⚠️ กรุณาใส่ Facebook App ID ก่อนครับ');
+      showToast('⚠️ ระบบผิดพลาด: ไม่พบ Master App ID');
+      fetchFbConfig(); // Retry fetching
       return;
     }
-
     setFbLoginStatus('loading');
-
-    // 🚀 [PRO METHOD] Use FB.login if SDK is ready
+    
+    // 🛡️ Ensure redirect URI is exactly what's whitelisted in FB Dashboard
+    const redirectUri = window.location.origin + window.location.pathname;
+    
     if (window.FB && isFbReady) {
-      console.log('🚀 Using FB.login SDK method...');
       window.FB.login((response) => {
         if (response.authResponse) {
-          const token = response.authResponse.accessToken;
-          console.log('🎫 Captured FB Access Token from SDK Login');
-          fetchFbPages(token);
+          fetchFbPages(response.authResponse.accessToken);
         } else {
-          console.warn('❌ FB.login cancelled or failed');
           setFbLoginStatus('idle');
           showToast('❌ การเข้าสู่ระบบถูกยกเลิก');
         }
       }, { scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile' });
       return;
     }
-
-    // 🔄 [FALLBACK] Direct OAuth Redirect (if SDK fails to load)
-    console.log('🔄 SDK not ready, falling back to Direct OAuth Redirect...');
-    const redirectUri = window.location.origin + window.location.pathname;
-    const scope = 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile';
-    const oauthUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${cleanId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
     
+    // Fallback if SDK not ready: Use direct Redirect
+    const scope = 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile';
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${cleanId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
     window.location.href = oauthUrl;
   };
 
@@ -823,99 +794,25 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ============================================ */}
-          {/* Facebook Page Integration — Page365 Style   */}
-          {/* ============================================ */}
+          {/* === Facebook Page Tab (Page365 Style) === */}
           {activeTab === 'facebook_page' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-[#1877F2] flex items-center justify-center text-white">
-                  <Facebook size={22} />
-                </div>
+            <div className="space-y-6 animate-fade-in relative">
+              <div className="flex justify-between items-start border-b border-gray-200 dark:border-gray-700 pb-4">
                 <div>
-                  <h2 className="text-xl font-bold">เชื่อมต่อ Facebook Page</h2>
-                  <p className="text-xs text-gray-400">รับแชทจาก Messenger เข้ามาในระบบ CRM</p>
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <Facebook className="text-[#1877F2]" /> Facebook Page
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">เชื่อมต่อเพจของคุณเพื่อรับออเดอร์จาก Messenger อัตโนมัติ</p>
                 </div>
               </div>
 
-              {/* Step 1: Manual Setup — Hidden if Global Config exists (Page365 Style) */}
-              {!isGlobalConfig && !fbAppId && (
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 border border-blue-100 dark:border-gray-700 rounded-2xl shadow-sm space-y-5">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm shrink-0 border border-blue-100 dark:border-gray-700">
-                      <span className="text-2xl">🔑</span>
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white text-lg">เริ่มต้นเชื่อมต่อ Facebook</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                        คัดลอกรหัสจากหน้า <strong>Facebook Developers</strong> 
-                        (เลือกแอปของคุณ {'>'} การตั้งค่า {'>'} ข้อมูลเบื้องต้น)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Facebook App ID</label>
-                      <input
-                        type="text"
-                        value={fbAppIdInput}
-                        onChange={e => setFbAppIdInput(e.target.value)}
-                        placeholder="วาง App ID ที่นี่..."
-                        className="w-full p-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-mono text-sm dark:text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Facebook App Secret</label>
-                      <input
-                        type="password"
-                        value={fbAppSecretInput}
-                        onChange={e => setFbAppSecretInput(e.target.value)}
-                        placeholder="วาง App Secret ที่นี่..."
-                        className="w-full p-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-mono text-sm dark:text-white"
-                      />
-                    </div>
-
-                    <button 
-                      onClick={saveAppId} 
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
-                    >
-                      ยืนยันและบันทึกรหัสแอป
-                    </button>
-                    
-                    {/* 🛠️ Debug Info for App ID Verification */}
-                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Terminal size={14} className="text-amber-600" />
-                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">🛠️ ข้อมูลทางเทคนิค (สำหรับตรวจสอบ)</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-gray-500">Current App ID:</span>
-                          <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{fbAppId || 'ยังไม่มี'}</span>
-                        </div>
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-gray-500">SDK Status:</span>
-                          <span className={`font-bold ${isFbReady ? 'text-green-500' : 'text-red-500'}`}>{isFbReady ? 'พร้อมใช้งาน' : 'กำลังโหลด...'}</span>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[9px] text-amber-600 italic">💡 โปรดเช็คเลข ID นี้กับหน้า Dashboard ของ Facebook ให้ตรงกัน 100% ครับ</p>
-                    </div>
-                  </div>
+              {isFetchingFb ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
+                  <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
                 </div>
-              )}
-
-              {/* APP ID ตั้งค่าแล้ว */}
-              {fbAppId && (
+              ) : (
                 <>
-                  {isFetchingFb ? (
-                    <div className="space-y-4 animate-pulse">
-                      <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
-                      <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full"></div>
-                    </div>
-                  ) : (
-                    <>
                       {/* Connected Pages */}
                       {facebookAccounts.length > 0 && (
                         <div className="space-y-3">
@@ -977,28 +874,42 @@ export default function Settings() {
                         />
                       )}
 
-                      {/* Main Connect Button */}
-                      {fbLoginStatus !== 'selecting' && (
-                        <div className="pt-2">
-                          <button
-                            onClick={handleFbLogin}
-                            disabled={fbLoginStatus === 'loading'}
-                            className="w-full py-4 bg-[#1877F2] hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-2xl transition flex items-center justify-center gap-3 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
-                          >
-                            {fbLoginStatus === 'loading' ? (
-                              <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span> กำลังเชื่อมต่อ Facebook...</>
-                            ) : (
-                              <><Facebook size={22} /> {facebookAccounts.length > 0 ? 'เพิ่มเพจ Facebook อื่น' : 'เชื่อมต่อด้วย Facebook'}</>
-                            )}
+                  {/* Main One-Click Connect Button (Page365 Style) */}
+                  {fbLoginStatus !== 'selecting' && (
+                    <div className="pt-2 space-y-4">
+                      <button
+                        onClick={handleFbLogin}
+                        disabled={fbLoginStatus === 'loading'}
+                        className="w-full py-4 bg-[#1877F2] hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-2xl transition flex items-center justify-center gap-3 text-lg shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 active:scale-[0.98]"
+                      >
+                        {fbLoginStatus === 'loading' ? (
+                          <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span> กำลังเข้าสู่ระบบ Facebook...</>
+                        ) : (
+                          <><Facebook size={22} /> {facebookAccounts.length > 0 ? 'เพิ่มเพจ Facebook อื่น' : 'เชื่อมต่อด้วย Facebook (One-Click)'}</>
+                        )}
+                      </button>
+
+                      {/* 🛰️ TECHNICAL INFO FOR FB DASHBOARD */}
+                      <div className="p-5 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-2xl">
+                        <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                          <AlertTriangle size={12} /> ความรู้นี้มาจาก OmniPage: แก้ปัญหากรณี App ID ค้าง
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">โปรดคัดลอก URL ด้านล่างไปใส่ในช่อง <b>Valid OAuth Redirect URIs</b> ในหน้าตั้งค่า Facebook App ของคุณ เพื่อแก้ไขอาการ "โดเมนไม่ได้รับอนุญาต":</p>
+                        <div className="p-3 bg-white dark:bg-gray-900 border border-orange-200 dark:border-orange-800 rounded-xl flex items-center justify-between">
+                          <code className="text-xs text-orange-700 dark:text-orange-300 font-mono break-all">{window.location.origin + window.location.pathname}</code>
+                          <button onClick={() => { navigator.clipboard.writeText(window.location.origin + window.location.pathname); showToast('คัดลอก URL เรียบร้อย!'); }} className="ml-2 p-1.5 hover:bg-orange-50 dark:hover:bg-orange-800/50 rounded-lg transition">
+                            <Copy size={14} className="text-orange-600" />
                           </button>
-                          <div className="mt-4 text-center">
-                            <p className="text-[10px] text-gray-500 bg-gray-50 py-2 px-3 rounded-lg border border-gray-100 italic">
-                              ℹ️ ระบบเชื่อมต่ออัตโนมัติ 100% โดย OmniPage SaaS - หมดกังวลเรื่องตั้งค่า Webhook ผู้ใช้เพียงล็อคอินเท่านั้น!
-                            </p>
-                          </div>
                         </div>
-                      )}
-                    </>
+                      </div>
+
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-500 bg-gray-50 dark:bg-gray-900/40 py-3 px-4 rounded-xl border border-gray-100 dark:border-gray-800 leading-relaxed italic">
+                          🛡️ <strong>ความมั่นใจจาก OmniPage:</strong> เราใช้ระบบ Master App มาตรฐานของ Facebook 
+                          คุณไม่จำเป็นต้องกรอก App ID เพียงล็อกอินและเลือกเพจ ระบบจะจัดการทุกอย่างให้ทันที
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </>
               )}

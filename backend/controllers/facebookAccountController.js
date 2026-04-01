@@ -49,7 +49,7 @@ exports.addFacebookAccount = async (req, res) => {
       try {
         const callbackUrl = `${publicUrl}/api/chats/facebook/webhook`;
         const verifyTokenToUse = verify_token || process.env.FACEBOOK_VERIFY_TOKEN || 'my_crm_verify_token';
-        const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '202208148688114';
+        const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '2022008148688114';
         const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || app_secret;
 
         // Subscribe the Page to receive Webhook events
