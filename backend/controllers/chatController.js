@@ -282,6 +282,13 @@ exports.lineWebhook = async (req, res) => {
         const io = req.app.get('io');
         if (io && updatedConv) {
           io.emit('conversation_updated', updatedConv);
+          // 🆕 บรอดแคสต์แจ้งเตือนใหม่ทั่วทั้งแอป
+          io.emit('new_notification', {
+            type: 'chat',
+            title: `แชทใหม่จาก ${updatedConv.customer || 'ลูกค้า'}`,
+            body: text || '(ส่งรูปภาพ)',
+            time: 'เมื่อสักครู่'
+          });
         } else if (io) {
           io.emit('force_refresh', { reason: 'new_message' });
         }
@@ -508,6 +515,13 @@ exports.facebookWebhook = async (req, res) => {
         const io = req.app.get('io');
         if (io && updatedConv) {
           io.emit('conversation_updated', updatedConv);
+          // 🆕 บรอดแคสต์แจ้งเตือนใหม่ทั่วทั้งแอป (Facebook)
+          io.emit('new_notification', {
+            type: 'chat',
+            title: `แชทใหม่จาก FB: ${updatedConv.customer || 'ลูกค้า'}`,
+            body: text || '(ส่งรูปภาพ)',
+            time: 'เมื่อสักครู่'
+          });
         } else if (io) {
           io.emit('force_refresh', { reason: 'fb_new_message' });
         }

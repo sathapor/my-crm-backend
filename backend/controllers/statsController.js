@@ -136,3 +136,39 @@ exports.getAnalyticsStats = async (req, res) => {
     });
   }
 };
+
+// ── Test Notification ──────────────────────────────────────────
+exports.testNotification = async (req, res) => {
+  const io = req.app.get('io');
+  const { type = 'order' } = req.query;
+
+  if (io) {
+    const mockNotifs = {
+      order: {
+        type: 'order',
+        title: '🛍️ ออเดอร์ใหม่ (ทดสอบ)',
+        body: 'คุณสมชาย สั่งซื้อสินค้า 3 รายการ (฿1,250)',
+        time: 'เมื่อสักครู่'
+      },
+      chat: {
+        type: 'chat',
+        title: '💬 ข้อความใหม่ (ทดสอบ)',
+        body: 'ลูกค้า: สอบถามเรื่องการจัดส่งหน่อยครับ',
+        time: 'เมื่อสักครู่'
+      },
+      payment: {
+        type: 'payment',
+        title: '💰 รับสลิปโอนเงิน (ทดสอบ)',
+        body: 'คุณพรทิพย์ ส่งหลักฐานการโอนเงิน ฿590',
+        time: 'เมื่อสักครู่'
+      }
+    };
+
+    const payload = mockNotifs[type] || mockNotifs.order;
+    io.emit('new_notification', payload);
+    
+    return res.status(200).json({ success: true, message: `Test ${type} notification sent` });
+  }
+
+  res.status(500).json({ success: false, error: 'Socket.io not initialized' });
+};

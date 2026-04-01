@@ -50,6 +50,17 @@ exports.createOrder = async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_notification', {
+        type: 'order',
+        title: '🛍️ ออเดอร์ใหม่!',
+        body: `คุณ ${customer_name || 'ลูกค้า'} สั่งซื้อสินค้า ฿${total_amount}`,
+        time: 'เมื่อสักครู่'
+      });
+    }
+
     res.status(201).json({ success: true, data: data[0] });
   } catch (error) {
     console.error('⚠️ Orders Create Error:', error.message);
