@@ -28,10 +28,41 @@ function Layout({ children }) {
   );
 }
 
+import { useEffect } from 'react';
+import { useStore } from './store/useStore';
+import { io } from 'socket.io-client';
 import RegisterLine from './pages/RegisterLine';
 import Register from './pages/Register';
 
+// Production-ready Socket URL
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const SOCKET_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-apis.onrender.com');
+
 function App() {
+  const { addNotification } = useStore();
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL);
+
+    socket.on('connect', () => {
+      console.log('📡 Global Socket Connected:', socket.id);
+    });
+
+    socket.on('new_notification', (data) => {
+      console.log('🔔 New Notification Received:', data);
+      addNotification(data);
+      
+      // Optional: Play a sound or trigger a Browser Notification here
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(data.title, { body: data.body });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [addNotification]);
+
   return (
     <Router>
       <Routes>

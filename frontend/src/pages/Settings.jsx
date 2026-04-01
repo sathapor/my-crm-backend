@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3 } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3, Terminal, ShoppingCart, CreditCard, MessageSquare } from 'lucide-react';
 import api from '../api';
+
+// Toggle component
+function Toggle({ checked, onChange, label }) {
+  return (
+    <label className="flex items-center cursor-pointer group">
+      <div className="relative">
+        <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <div className={`block w-10 h-6 rounded-full transition ${checked ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${checked ? 'translate-x-4' : ''}`}></div>
+      </div>
+      <div className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition">
+        {label}
+      </div>
+    </label>
+  );
+}
 
 // Toast component
 function Toast({ msg }) {
@@ -251,6 +267,19 @@ export default function Settings() {
       }
     } catch (err) {
       showToast('❌ เลิกเชื่อมต่อไม่สำเร็จ');
+    }
+  };
+
+  const handleTestNotification = async (type) => {
+    try {
+      showToast('📡 กำลังส่งคำขอแจ้งเตือนทดสอบ...');
+      const res = await api.get(`/stats/test-notification?type=${type}`);
+      if (res.data.success) {
+        showToast(`✅ ส่งคำขอแจ้งเตือน [${type}] สำเร็จ!`);
+      }
+    } catch (err) {
+      console.error('Test Notif Err:', err);
+      showToast('❌ ส่งแจ้งเตือนทดสอบไม่สำเร็จ');
     }
   };
 
@@ -571,11 +600,42 @@ export default function Settings() {
                   <Toggle checked={notifications.dailySummary} onChange={v => setNotifications({...notifications, dailySummary: v})} label="สรุปยอดขายรายวันทางอีเมล" />
                   <Toggle checked={notifications.lineNotify} onChange={v => setNotifications({...notifications, lineNotify: v})} label="แจ้งเตือนผ่าน LINE Notify" />
                   {notifications.lineNotify && (
-                    <div>
+                    <div className="mt-2">
                       <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 block mb-1">LINE Notify Token</label>
                       <input type="text" placeholder="วาง Token จาก notify.line.me ที่นี่..." className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-DEFAULT focus:outline-none text-sm font-mono" />
                     </div>
                   )}
+                </div>
+
+                {/* 🆕 Testing Tools for Real-time Notifications */}
+                <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Terminal size={18} className="text-indigo-500" />
+                    <p className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-widest">💡 ส่วนทดลองระบบ (Testing Tools)</p>
+                  </div>
+                  <div className="p-5 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-4 font-medium">ใช้เพื่อตรวจสอบว่าระบบแจ้งเตือนแบบ Real-time และกระดิ่งมุมขวาทำงานปกติหรือไม่</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <button 
+                        onClick={() => handleTestNotification('order')}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-xl text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition shadow-sm"
+                      >
+                        <ShoppingCart size={14} /> เทสออเดอร์ใหม่
+                      </button>
+                      <button 
+                        onClick={() => handleTestNotification('chat')}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-xl text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition shadow-sm"
+                      >
+                        <MessageSquare size={14} /> เทสแชทใหม่
+                      </button>
+                      <button 
+                        onClick={() => handleTestNotification('payment')}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-xl text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition shadow-sm"
+                      >
+                        <CreditCard size={14} /> เทสสลิปใหม่
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
