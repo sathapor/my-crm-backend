@@ -107,8 +107,24 @@ exports.sendMessage = async (req, res) => {
       }
 
       if (fbToken) {
-        console.log(`📤 [FB] Sending to: ${conv.facebook_user_id} using token for Account: ${fbIdToUse}`);
-        const fbRes = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${fbToken}`, {
+        // 🛡️ [SECURITY] Calculate appsecret_proof for the Master App
+        const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
+        let appSecretProof = null;
+        if (FACEBOOK_APP_SECRET) {
+          const crypto = require('crypto');
+          appSecretProof = crypto.createHmac('sha256', FACEBOOK_APP_SECRET).update(fbToken).digest('hex');
+        }
+
+        // Get the page_id for this account to use explicit endpoint
+        const { data: pageInfo } = await supabase.from('facebook_accounts').select('page_id').eq('id', fbIdToUse).single();
+        const pageId = pageInfo?.page_id || 'me';
+
+        console.log(`📤 [FB] Sending from Page: ${pageId} to User: ${conv.facebook_user_id}`);
+        
+        let url = `https://graph.facebook.com/v21.0/${pageId}/messages?access_token=${fbToken}`;
+        if (appSecretProof) url += `&appsecret_proof=${appSecretProof}`;
+
+        const fbRes = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -116,13 +132,13 @@ exports.sendMessage = async (req, res) => {
             message: { text }
           })
         });
-        const fbText = await fbRes.text();
+        const fbData = await fbRes.json();
+        
         if (!fbRes.ok) {
-          console.error('🚫 Facebook Send Error:', fbRes.status, fbText);
-          // Don't just throw, provide a clear error message to frontend
+          console.error('🚫 Facebook Send Error:', fbRes.status, fbData);
           return res.status(fbRes.status === 401 ? 401 : 500).json({ 
             success: false, 
-            error: `Facebook API Error: ${fbText}`,
+            error: `Facebook API Error: ${fbData.error?.message || 'Unknown Error'}`,
             fbStatus: fbRes.status 
           });
         } 
