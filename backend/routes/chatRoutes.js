@@ -27,7 +27,9 @@ const upload = multer({
 });
 
 // /webhook/:accountId ต้องเปิด public เพราะ LINE server เรียก โดยไม่มี JWT
+// [UPDATE] รองรับทั้ง path /webhook และ /line/webhook เพื่อความยืดหยุ่นและการทำงานร่วมกัน
 router.post('/webhook/:accountId?', lineWebhook);
+router.post('/line/webhook/:accountId?', lineWebhook);
 
 // Facebook Webhook routes (public เช่นกัน)
 router.get('/facebook/webhook/:accountId?', facebookWebhookVerify);

@@ -702,9 +702,9 @@ export default function Settings() {
                     <div className="space-y-4">
                       {lineAccounts.map(account => {
                         const rawApiBase = import.meta.env.VITE_API_URL || 'https://my-crm-api.onrender.com';
-                        // 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก Webhook URL อัตโนมัติ (ป้องกันจาก Vercel/Old setup)
+                        // 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก Webhook URL อัตโนมัติ (ป้องกันจาก Vercel/Old env setup)
                         const apiBase = rawApiBase.replace('my-crm-apis.onrender.com', 'my-crm-api.onrender.com');
-                        const webhookUrl = `${apiBase}/api/chats/line/webhook/${account.id}`;
+                        const webhookUrl = `${apiBase}/api/chats/webhook/${account.id}`;
                         
                         return (
                           <div key={account.id} className="p-6 border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl shadow-sm space-y-4 transition hover:shadow-md">

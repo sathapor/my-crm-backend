@@ -151,13 +151,21 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    // 4. Emit via Socket.io - ส่ง full conversation data เพื่อให้ Frontend อัปเดททันที
+    // 4. Emit via Socket.io - ส่งข้อมูลแบบ Rich Data (พร้อมชื่อเพจ) เพื่อให้ Frontend แสดงผลทันทีโดยไม่ต้อง Refresh
     const io = req.app.get('io');
     if (io) {
-      // สร้าง conversation อัปเดทล่าสุดจาก data[] ที่ supabase ส่งกลับมา (data = updated rows)
-      const updatedRow = Array.isArray(data) ? data[0] : data;
-      if (updatedRow) {
-        io.emit('conversation_updated', updatedRow);
+      const convId = Array.isArray(data) ? data[0]?.id : data?.id;
+      if (convId) {
+        const { data: richConv } = await supabase
+          .from('chat_conversations')
+          .select('*, facebook_accounts(name), line_accounts(name)')
+          .eq('id', convId)
+          .single();
+        
+        if (richConv) {
+          console.log(`📡 [SEND_MESSAGE] Emitting rich socket update for: ${richConv.customer}`);
+          io.emit('conversation_updated', richConv);
+        }
       } else {
         io.emit('force_refresh', { reason: 'send_message' });
       }
@@ -172,10 +180,27 @@ exports.sendMessage = async (req, res) => {
 
 // ── 3. รับข้อความจากลูกค้าที่พิมพ์ผ่านแอป LINE (Webhook) ───────────
 exports.lineWebhook = async (req, res) => {
-  const accountId = req.params.accountId;
   const supabase = req.app.get('supabase');
+  const destination = req.body.destination; // 🎯 Channel ID จาก LINE
   
-  console.log(`[LINE] Webhook POST received. accountId: ${accountId || 'none (default)'}`);
+  // 🔗 [SMART LOOKUP] ค้นหาบัญชี LINE ที่ถูกต้องจาก Channel ID (ป้องกัน URL Webhook เก่าไม่มี ID)
+  let accountId = req.params.accountId;
+  if ((!accountId || accountId === 'none' || accountId === 'default') && destination) {
+    const { data: accData } = await supabase.from('line_accounts').select('id').eq('channel_id', destination).single();
+    if (accData) {
+      accountId = accData.id;
+      console.log(`📡 [LINE] Smart Lookup Success -> Found accountId: ${accountId}`);
+    }
+  }
+
+  console.log(`📡 [LINE] Webhook POST received. accountId: ${accountId || 'none (default)'}, destination: ${destination || 'none'}`);
+
+  // 🛡️ [VERIFY_TEST] Handle LINE's verification test ping (sometimes it has empty events)
+  const events = req.body.events;
+  if (!events || events.length === 0) {
+    console.log('✅ [LINE] Received empty event / Verify ping. Responding 200 OK.');
+    return res.status(200).send('OK');
+  }
 
   // ดึงข้อมูลบัญชี LINE จาก Database เพื่อใช้ Channel Secret ป้องกันการปลอมแปลง
   let channelSecret = process.env.LINE_CHANNEL_SECRET;
@@ -225,7 +250,7 @@ exports.lineWebhook = async (req, res) => {
     lastSeenPublicUrl = `${proto}://${req.headers.host}`;
   }
 
-  const events = req.body.events;
+  // เคลื่อนย้ายการใช้ events มาตรงนี้ (ลบการประกาศซ้ำซ้อน)
   if (!events || events.length === 0) return;
 
   for (const event of events) {
@@ -341,25 +366,33 @@ exports.lineWebhook = async (req, res) => {
           .single();
         const ownerUserId = lineAccData?.user_id;
 
+        // 🔗 [Rich Socket] ค้นหาข้อมูลแบบพ่วงชื่อเพจก่อนส่งแจ้งเตือน
+        const { data: richRows } = await supabase
+          .from('chat_conversations')
+          .select('*, facebook_accounts(name), line_accounts(name)')
+          .eq('id', updatedConv.id);
+        
+        const richConv = (richRows && richRows.length > 0) ? richRows[0] : updatedConv;
+
         const io = req.app.get('io');
-        if (io && updatedConv) {
+        if (io && richConv) {
           if (ownerUserId) {
             // 🏠 ส่งเฉพาะถึงห้องส่วนตัวของ User นั้นๆ (ใช้ใน App.jsx และ Chat.jsx ที่มี Socket Auth)
             console.log(`📡 [LINE] Attempting Targeted Socket emission to room: ${ownerUserId}`);
-            io.to(ownerUserId).emit('conversation_updated', updatedConv);
+            io.to(ownerUserId).emit('conversation_updated', richConv);
             io.emit('new_notification', {
               type: 'chat',
-              title: `แชทใหม่จาก LINE: ${updatedConv.customer || 'ลูกค้า'}`,
+              title: `แชทใหม่จาก LINE: ${richConv.customer || 'ลูกค้า'}`,
               body: text || '(ส่งรูปภาพ)',
               time: 'เมื่อสักครู่'
             });
           } else {
             // Fallback สัญญาณแบบเดิม (Global broadcast)
             console.log('📡 [LINE] Falling back to Global Socket emission');
-            io.emit('conversation_updated', updatedConv);
+            io.emit('conversation_updated', richConv);
             io.emit('new_notification', {
               type: 'chat',
-              title: `แชทใหม่จาก ${updatedConv.customer || 'ลูกค้า'}`,
+              title: `แชทใหม่จาก LINE: ${richConv.customer || 'ลูกค้า'}`,
               body: text || '(ส่งรูปภาพ)',
               time: 'เมื่อสักครู่'
             });
@@ -599,15 +632,24 @@ exports.facebookWebhook = async (req, res) => {
 
         console.log(`📥 [FB] Message from [${fbUserId}]: ${msgText}`);
 
-        // Emit ให้ Frontend อัปเดททันทีผ่าน Socket.io
+        // Emit ให้ Frontend อัปเดททันทีผ่าน Socket.io (พ่วงข้อมูล Rich Data)
         const io = req.app.get('io');
         if (io && updatedConv) {
-          io.emit('conversation_updated', updatedConv);
+          const { data: richRows } = await supabase
+            .from('chat_conversations')
+            .select('*, facebook_accounts(name), line_accounts(name)')
+            .eq('id', updatedConv.id);
+          
+          const richConv = (richRows && richRows.length > 0) ? richRows[0] : updatedConv;
+
+          console.log(`📡 [FB] Emitting rich socket update for: ${richConv.customer}`);
+          io.emit('conversation_updated', richConv);
+
           // 🆕 บรอดแคสต์แจ้งเตือนใหม่ทั่วทั้งแอป (Facebook)
           io.emit('new_notification', {
             type: 'chat',
-            title: `แชทใหม่จาก FB: ${updatedConv.customer || 'ลูกค้า'}`,
-            body: text || '(ส่งรูปภาพ)',
+            title: `แชทใหม่จาก FB: ${richConv.customer || 'ลูกค้า'}`,
+            body: msgText || '(ส่งรูปภาพ)',
             time: 'เมื่อสักครู่'
           });
         } else if (io) {
