@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap, Edit3 } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Bell, Shield, Wallet, PaintBucket, Save, CheckSquare, Check, MessageCircle, Copy, Plus, Trash2, Facebook, Zap } from 'lucide-react';
 import api from '../api';
 
 // Toast component

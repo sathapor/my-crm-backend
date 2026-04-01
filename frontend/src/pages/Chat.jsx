@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search, ChevronDown, Check, MoreVertical, Plus, Minus, X, Share2,
-  FileText, Smartphone, Send, Package, Truck, User, CreditCard,
-  Star, Tag, Filter, RefreshCw, CheckCircle, Clock, Printer, ZoomIn,
+  Smartphone, Send, Package, Truck, User, CreditCard,
+  Filter, CheckCircle, Clock, Printer,
   Bell, MessageSquare, ShoppingCart, ChevronRight, Trash2, AlertCircle,
   Image as ImageIcon, Loader2, Facebook, Smile, Mic, Gift, Paperclip
 } from 'lucide-react';
@@ -10,7 +10,6 @@ import api from '../api';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Helper: แปลง imageUrl ให้ถูกต้องเสมอ ไม่ว่าจะเก็บเป็น relative หรือ absolute
 // พิเศษ: หากรันบน localhost ให้บังคับใช้ localhost:5000 เสมอ เพื่อหลีกเลี่ยง LocalTunnel 503 Anti-Abuse Block
