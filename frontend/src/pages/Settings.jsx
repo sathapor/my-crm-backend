@@ -268,6 +268,11 @@ export default function Settings() {
   };
 
   // === Facebook Page state ===
+  const [facebookAccounts, setFacebookAccounts] = useState([]);
+  const [fbAvailablePages, setFbAvailablePages] = useState([]); // Pages returned after FB Login
+  const [fbLoginStatus, setFbLoginStatus] = useState('idle'); // idle | loading | selecting | done | error
+  const [isFbReady, setIsFbReady] = useState(false);
+  
   // 🚀 Master Facebook App Config (Page365 Style)
   // Priority: 1. Environment Variable 2. localStorage 3. Default Master ID
   const MASTER_APP_ID = '202208148688114';
