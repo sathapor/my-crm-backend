@@ -284,6 +284,12 @@ exports.lineWebhook = async (req, res) => {
           }
           if (existUser.channel !== 'line') updateObj.channel = 'line';
 
+          // 🛡️ [Reliability] ผูกเจ้าของคนปัจจุบัน ถ้ายังไม่มี (ช่วยเรื่อง Real-time)
+          const { data: lineAccData } = await supabase.from('line_accounts').select('user_id').eq('id', accountId).single();
+          if (lineAccData?.user_id && !existUser.owner_user_id) {
+            updateObj.owner_user_id = lineAccData.user_id;
+          }
+
           const { data: updatedRows } = await supabase.from('chat_conversations')
             .update(updateObj)
             .eq('id', existUser.id)
@@ -305,14 +311,19 @@ exports.lineWebhook = async (req, res) => {
             }
           }
 
+          // 🛡️ ดึง User ID เจ้าของตัวจริง
+          const { data: lineAccData } = await supabase.from('line_accounts').select('user_id').eq('id', accountId).single();
+
           // สร้างลูกค้าใหม่ใน DB
           const { data: insertData } = await supabase.from('chat_conversations').insert([{
             line_user_id: lineUserId,
+            owner_user_id: lineAccData?.user_id || null, // 🏠 ระบุเจ้าของทันที
             customer: customerName,
             avatar: avatarUrl,
             messages: [newMsg],
             last_message: text,
-            line_account_id: accountId !== 'default' ? accountId : null
+            line_account_id: accountId !== 'default' ? accountId : null,
+            channel: 'line'
           }]).select('*');
 
           if (insertData && insertData.length > 0) {
@@ -322,16 +333,37 @@ exports.lineWebhook = async (req, res) => {
 
         console.log(`📥 Received LINE message from [${lineUserId}]: ${text} ${imageUrl ? '(Image)' : ''}`);
 
+        // 🔗 [Targeted Socket] ค้นหา User ID ของเจ้าของบัญชี LINE นี้
+        const { data: lineAccData } = await supabase
+          .from('line_accounts')
+          .select('user_id')
+          .eq('id', accountId)
+          .single();
+        const ownerUserId = lineAccData?.user_id;
+
         const io = req.app.get('io');
         if (io && updatedConv) {
-          io.emit('conversation_updated', updatedConv);
-          // 🆕 บรอดแคสต์แจ้งเตือนใหม่ทั่วทั้งแอป
-          io.emit('new_notification', {
-            type: 'chat',
-            title: `แชทใหม่จาก ${updatedConv.customer || 'ลูกค้า'}`,
-            body: text || '(ส่งรูปภาพ)',
-            time: 'เมื่อสักครู่'
-          });
+          if (ownerUserId) {
+            // 🏠 ส่งเฉพาะถึงห้องส่วนตัวของ User นั้นๆ (ใช้ใน App.jsx และ Chat.jsx ที่มี Socket Auth)
+            console.log(`📡 [LINE] Attempting Targeted Socket emission to room: ${ownerUserId}`);
+            io.to(ownerUserId).emit('conversation_updated', updatedConv);
+            io.emit('new_notification', {
+              type: 'chat',
+              title: `แชทใหม่จาก LINE: ${updatedConv.customer || 'ลูกค้า'}`,
+              body: text || '(ส่งรูปภาพ)',
+              time: 'เมื่อสักครู่'
+            });
+          } else {
+            // Fallback สัญญาณแบบเดิม (Global broadcast)
+            console.log('📡 [LINE] Falling back to Global Socket emission');
+            io.emit('conversation_updated', updatedConv);
+            io.emit('new_notification', {
+              type: 'chat',
+              title: `แชทใหม่จาก ${updatedConv.customer || 'ลูกค้า'}`,
+              body: text || '(ส่งรูปภาพ)',
+              time: 'เมื่อสักครู่'
+            });
+          }
         } else if (io) {
           io.emit('force_refresh', { reason: 'new_message' });
         }

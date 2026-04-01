@@ -701,7 +701,9 @@ export default function Settings() {
                   ) : (
                     <div className="space-y-4">
                       {lineAccounts.map(account => {
-                        const apiBase = import.meta.env.VITE_API_URL || 'https://my-crm-apis.onrender.com';
+                        const rawApiBase = import.meta.env.VITE_API_URL || 'https://my-crm-api.onrender.com';
+                        // 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก Webhook URL อัตโนมัติ (ป้องกันจาก Vercel/Old setup)
+                        const apiBase = rawApiBase.replace('my-crm-apis.onrender.com', 'my-crm-api.onrender.com');
                         const webhookUrl = `${apiBase}/api/chats/line/webhook/${account.id}`;
                         
                         return (
