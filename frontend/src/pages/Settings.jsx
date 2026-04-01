@@ -222,15 +222,17 @@ export default function Settings() {
       if (!newLineAccount.name || !newLineAccount.channel_secret || !newLineAccount.access_token) {
         return showToast('⚠️ กรุณากรอกข้อมูลสำคัญให้ครบถ้วน');
       }
+      setIsAddingLine('loading');
       const res = await api.post('/line-accounts', newLineAccount);
       if (res.data.success) {
-        showToast('✅ เพิ่มบัญชี LINE สำหรับร้านค้าสำเร็จ!');
+        showToast('✅ เชื่อมต่อ LINE OA สำเร็จ! ระบบลงทะเบียน Webhook ให้อัตโนมัติแล้ว 🎉');
         setIsAddingLine(false);
         setNewLineAccount({ name: '', channel_secret: '', access_token: '', picture_url: '' });
         fetchLineAccounts();
       }
     } catch (err) {
       showToast('❌ เกิดข้อผิดพลาดในการเพิ่มบัญชี');
+      setIsAddingLine(false);
     }
   };
 
@@ -616,13 +618,13 @@ export default function Settings() {
                             </button>
                           </div>
                           
-                          <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between border border-gray-100 dark:border-gray-800">
+                          <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg flex items-center justify-between border border-green-200 dark:border-green-800">
                             <div>
-                              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook URL สำหรับนำไปใส่ใน LINE Developers</p>
-                              <code className="text-sm text-[#00B900] break-all font-mono">{webhookUrl}</code>
+                              <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1 flex items-center gap-1"><Zap size={10} /> Webhook (ลงทะเบียนอัตโนมัติแล้ว)</p>
+                              <code className="text-xs text-green-700 break-all font-mono">{webhookUrl}</code>
                             </div>
-                            <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="ml-4 p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition shrink-0">
-                              <Copy size={16} className="text-gray-600 dark:text-gray-300" />
+                            <button onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast('คัดลอก Webhook URL แล้ว!'); }} className="ml-4 p-2.5 bg-white dark:bg-gray-800 border border-green-200 dark:border-gray-700 rounded-lg hover:bg-green-50 transition shrink-0">
+                              <Copy size={16} className="text-green-600" />
                             </button>
                           </div>
                         </div>
@@ -633,7 +635,10 @@ export default function Settings() {
               ) : (
                 <div className="space-y-4 animate-fade-in p-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-800">
-                    <p className="font-bold text-gray-700 dark:text-gray-300">เพิ่มช่องทาง LINE (Manual Setup)</p>
+                    <div>
+                      <p className="font-bold text-gray-700 dark:text-gray-300">เพิ่มช่องทาง LINE OA</p>
+                      <p className="text-xs text-[#00B900] mt-0.5 flex items-center gap-1"><Zap size={11} /> ระบบจะลงทะเบียน Webhook ให้อัตโนมัติ ไม่ต้องตั้งค่าเพิ่ม</p>
+                    </div>
                     <button onClick={() => setIsAddingLine(false)} className="text-sm text-gray-500 hover:underline">ยกเลิก</button>
                   </div>
                   <div className="space-y-4 pt-2">
@@ -650,8 +655,12 @@ export default function Settings() {
                       <textarea rows={3} value={newLineAccount.access_token} onChange={e => setNewLineAccount({...newLineAccount, access_token: e.target.value})} placeholder="นำมาจากแท็บ Messaging API" className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#00B900] focus:border-[#00B900] focus:outline-none resize-none" />
                     </div>
                     
-                    <button onClick={handleCreateLineAccount} className="w-full py-4 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold rounded-xl transition flex justify-center items-center gap-2">
-                      <MessageCircle size={20} /> บันทึกรหัสนักพัฒนา
+                    <button onClick={handleCreateLineAccount} disabled={isAddingLine === 'loading'} className="w-full py-4 bg-[#00B900] hover:bg-[#009900] disabled:opacity-60 text-white font-bold rounded-xl transition flex justify-center items-center gap-2">
+                      {isAddingLine === 'loading' ? (
+                        <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> กำลังเชื่อมต่อและตั้งค่า Webhook...</>
+                      ) : (
+                        <><MessageCircle size={20} /> เชื่อมต่อ LINE OA และตั้งค่า Webhook อัตโนมัติ</>
+                      )}
                     </button>
                   </div>
                 </div>
