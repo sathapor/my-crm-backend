@@ -38,7 +38,34 @@ exports.addLineAccount = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // ── Auto-register Webhook URL ไปยัง LINE Messaging API ──
+    // เหมือน Page365 คือกดบันทึกแล้วระบบตั้งค่า Webhook ให้เองทันที
+    const publicUrl = process.env.PUBLIC_URL || '';
+    if (publicUrl && data?.id) {
+      const webhookUrl = `${publicUrl}/api/chats/webhook/${data.id}`;
+      try {
+        const lineRes = await fetch('https://api.line.me/v2/bot/channel/webhook/endpoint', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${access_token}`
+          },
+          body: JSON.stringify({ webhookEndpointUrl: webhookUrl })
+        });
+        const lineData = await lineRes.json();
+        if (lineRes.ok) {
+          console.log(`✅ [LINE] Auto-registered webhook URL: ${webhookUrl}`);
+        } else {
+          console.warn(`⚠️ [LINE] Could not auto-register webhook:`, lineData);
+        }
+      } catch (webhookErr) {
+        console.warn('[LINE] Webhook registration error:', webhookErr.message);
+      }
+    }
+
     res.status(201).json({ success: true, data });
+
   } catch (err) {
     console.error('addLineAccount error:', err);
     res.status(500).json({ success: false, error: err.message });

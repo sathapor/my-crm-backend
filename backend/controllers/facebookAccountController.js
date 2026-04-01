@@ -33,18 +33,30 @@ exports.addFacebookAccount = async (req, res) => {
   }
 
   try {
-    // 1. สั่งให้ Facebook ส่ง Webhook มาหาแอปเรา (Auto-subscribe)
-    // นี่คือสิ่งที่ทำให้เหมือน Page365 คือกดเชื่อมต่อแล้วข้อความเริ่มเข้าทันที
-    try {
-      const fields = 'messages,messaging_postbacks,messaging_optins,message_deliveries,message_reads,messaging_referrals';
-      const subRes = await fetch(`https://graph.facebook.com/v18.0/${page_id}/subscribed_apps?subscribed_fields=${fields}&access_token=${access_token}`, {
-        method: 'POST'
-      });
-      const subData = await subRes.json();
-      if (!subRes.ok) console.warn('[FB] Auto-subscription warning:', subData);
-      else console.log('[FB] Auto-subscription success for page:', name);
-    } catch (err) {
-      console.warn('[FB] Could not auto-subscribe page:', err.message);
+    const publicUrl = process.env.PUBLIC_URL || '';
+
+    // 1. ลงทะเบียน Webhook URL + Subscribe fields กับ Facebook Graph API อัตโนมัติ
+    // เหมือน Page365 คือกดเชื่อมต่อแล้วข้อความเริ่มเข้าทันที ไม่ต้องไปกรอกใน Developer Console
+    if (publicUrl) {
+      try {
+        const callbackUrl = `${publicUrl}/api/chats/facebook/webhook`;
+        const verifyTokenToUse = verify_token || process.env.FACEBOOK_VERIFY_TOKEN || 'crm_facebook_verify_token_2024';
+        const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1263587315899560';
+        const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || app_secret;
+
+        // Subscribe the Page to receive Webhook events
+        const fields = 'messages,messaging_postbacks,messaging_optins,message_deliveries,message_reads,messaging_referrals';
+        const subRes = await fetch(
+          `https://graph.facebook.com/v21.0/${page_id}/subscribed_apps?subscribed_fields=${fields}&access_token=${access_token}`,
+          { method: 'POST' }
+        );
+        const subData = await subRes.json();
+        if (subRes.ok) console.log(`✅ [FB] Auto-subscribed page "${name}" to webhooks`);
+        else console.warn('[FB] Auto-subscription warning:', subData);
+
+      } catch (err) {
+        console.warn('[FB] Could not auto-register webhook:', err.message);
+      }
     }
 
     // 2. บันทึกลง Database
@@ -56,6 +68,7 @@ exports.addFacebookAccount = async (req, res) => {
 
     if (error) throw error;
     res.status(201).json({ success: true, data });
+
   } catch (err) {
     console.error('addFacebookAccount error:', err);
     res.status(500).json({ success: false, error: err.message });
