@@ -4,13 +4,10 @@
 import axios from 'axios';
 
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const rawBaseURL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-api.onrender.com');
-
-// 🛡️ [Self-Healing] ลบตัว 's' เกินออกจาก URL อัตโนมัติ (ป้องกัน typo จาก Vercel Env)
-const fixedBaseURL = rawBaseURL.replace('my-crm-apis.onrender.com', 'my-crm-api.onrender.com');
+const rawBaseURL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:5000' : 'https://my-crm-apis.onrender.com');
 
 const api = axios.create({
-  baseURL: `${fixedBaseURL}/api`,
+  baseURL: `${rawBaseURL}/api`,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 });
